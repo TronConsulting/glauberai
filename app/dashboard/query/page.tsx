@@ -238,12 +238,12 @@ export default function QueryPage() {
         </div>
 
         {/* Usage Alert */}
-        {usage && usage.usagePercentage > 80 && (
+        {usage && usage.plan.name === 'STARTER' && usage.usagePercentage > 80 && (
           <Alert className="mb-6 border-orange-200 bg-orange-50/50 dark:border-orange-800 dark:bg-orange-950/50">
             <AlertTriangle className="h-4 w-4 text-orange-600" />
             <AlertDescription className="text-orange-800 dark:text-orange-200">
-              You've used {usage.currentUsage} of {usage.planLimit} requests this month. 
-              {usage.remainingRequests > 0 ? ` ${usage.remainingRequests} requests remaining.` : ' Please upgrade your plan to continue.'}
+              You've used {usage.tokensUsed} of {usage.planLimit} tokens this month.
+              {usage.remainingTokens > 0 ? ` ${usage.remainingTokens} tokens remaining.` : ' Please upgrade your plan to continue.'}
             </AlertDescription>
           </Alert>
         )}
@@ -275,21 +275,25 @@ export default function QueryPage() {
                   </Button>
                 )}
               </div>
-              
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
                   <span className="text-sm font-medium">Monthly Usage</span>
                   <span className="text-sm text-muted-foreground">
-                    {usage.currentUsage} / {usage.planLimit} requests
+                    {usage.plan.name === 'STARTER'
+                      ? `${usage.tokensUsed} / ${usage.planLimit} tokens`
+                      : `${usage.currentUsage} / ${usage.planLimit} requests`}
                   </span>
                 </div>
                 <Progress value={usage.usagePercentage} className="h-2" />
                 <div className="flex items-center justify-between text-xs text-muted-foreground">
-                  <span>{usage.remainingRequests > 0 ? `${usage.remainingRequests} remaining` : 'Limit reached'}</span>
+                  <span>
+                    {usage.plan.name === 'STARTER'
+                      ? (usage.remainingTokens > 0 ? `${usage.remainingTokens} tokens remaining` : 'Limit reached')
+                      : (usage.remainingRequests > 0 ? `${usage.remainingRequests} requests remaining` : 'Limit reached')}
+                  </span>
                   <span>{usage.usagePercentage.toFixed(1)}% used</span>
                 </div>
               </div>
-
               {/* Upgrade Suggestions */}
               {usage.usagePercentage > 70 && usage.plan.name === 'STARTER' && (
                 <div className="mt-4 p-3 bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-950/50 dark:to-purple-950/50 rounded-lg border border-blue-200 dark:border-blue-800">
@@ -298,7 +302,7 @@ export default function QueryPage() {
                     <div className="flex-1">
                       <h4 className="font-medium text-blue-900 dark:text-blue-100">Ready to upgrade?</h4>
                       <p className="text-sm text-blue-700 dark:text-blue-300 mt-1">
-                        You're approaching your limit. Upgrade to Professional for 50,000 requests/month and advanced features.
+                        You're approaching your limit. Upgrade to Professional for 1,000,000 tokens/month and advanced features.
                       </p>
                       <Button 
                         size="sm" 
@@ -585,7 +589,7 @@ export default function QueryPage() {
                 <Card className="border-2 border-primary/20 hover:border-primary/40 transition-colors cursor-pointer">
                   <CardHeader>
                     <CardTitle className="text-lg">Professional</CardTitle>
-                    <div className="text-2xl font-bold">$29<span className="text-sm font-normal text-muted-foreground">/month</span></div>
+                    <div className="text-2xl font-bold">$39<span className="text-sm font-normal text-muted-foreground">/month</span></div>
                   </CardHeader>
                   <CardContent>
                     <ul className="space-y-2 text-sm">

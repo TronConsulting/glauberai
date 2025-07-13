@@ -37,7 +37,7 @@ You need to create products and prices in your Stripe dashboard that match the p
 1. Go to **Products** in your Stripe Dashboard
 2. Create three products:
    - **Starter Plan** (Free)
-   - **Professional Plan** ($29/month, $290/year)
+   - **Professional Plan** ($39/month, $390/year)
    - **Enterprise Plan** ($299/month, $2990/year)
 
 3. For each paid product, create two prices:
@@ -47,8 +47,8 @@ You need to create products and prices in your Stripe dashboard that match the p
 4. **Important**: Set the lookup keys exactly as follows:
    - `price_starter_monthly` (for Starter monthly - $0)
    - `price_starter_annual` (for Starter annual - $0)
-   - `price_professional_monthly` (for Professional monthly - $29)
-   - `price_professional_annual` (for Professional annual - $290)
+   - `price_professional_monthly` (for Professional monthly - $39)
+   - `price_professional_annual` (for Professional annual - $390)
    - `price_enterprise_monthly` (for Enterprise monthly - $299)
    - `price_enterprise_annual` (for Enterprise annual - $2990)
 
@@ -88,14 +88,14 @@ stripe prices create \
 
 stripe prices create \
   --product=prod_yyyyy \
-  --unit-amount=2900 \
+  --unit-amount=3900 \
   --currency=usd \
   --recurring-interval=month \
   --lookup-key=price_professional_monthly
 
 stripe prices create \
   --product=prod_yyyyy \
-  --unit-amount=29000 \
+  --unit-amount=39000 \
   --currency=usd \
   --recurring-interval=year \
   --lookup-key=price_professional_annual

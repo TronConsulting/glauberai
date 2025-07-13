@@ -32,8 +32,9 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
 
-    // Count requests for this month
-    const currentUsage = await prisma.request.count({
+    // Count tokens for this month
+    const currentTokens = await prisma.request.aggregate({
+      _sum: { tokens: true },
       where: {
         userId: user.id,
         createdAt: {
@@ -41,44 +42,44 @@ export async function GET(req: NextRequest) {
         }
       }
     });
+    const tokensUsed = currentTokens._sum.tokens || 0;
 
     // Calculate usage based on plan
-    const planLimits: Record<string, number> = {
-      STARTER: 10,
-      PROFESSIONAL: 50000,
+    const planTokenLimits: Record<string, number> = {
+      STARTER: 1000,
+      PROFESSIONAL: 1000000,
       ENTERPRISE: -1 // Unlimited
     };
-
-    const planLimit = planLimits[user.plan] || 10;
+    const planLimit = planTokenLimits[user.plan] || 1000;
     const isUnlimited = user.plan === 'ENTERPRISE';
-    const usagePercentage = isUnlimited ? 0 : (currentUsage / planLimit) * 100;
-    const remainingRequests = isUnlimited ? -1 : Math.max(0, planLimit - currentUsage);
+    const usagePercentage = isUnlimited ? 0 : (tokensUsed / planLimit) * 100;
+    const remainingTokens = isUnlimited ? -1 : Math.max(0, planLimit - tokensUsed);
 
     const usage = {
-      currentUsage,
+      tokensUsed,
       planLimit,
-      remainingRequests,
+      remainingTokens,
       usagePercentage,
       isUnlimited,
       plan: {
         name: user.plan,
-        requests: planLimit,
-        price: user.plan === 'PROFESSIONAL' ? 29 : 0,
+        tokens: planLimit,
+        price: user.plan === 'PROFESSIONAL' ? 39 : 0,
         features: user.plan === 'STARTER' ? [
-          'Up to 10 requests/month',
+          'Up to 1,000 tokens/month',
           'Smart AI routing',
           'All AI models',
           'Standard support',
           'Basic analytics'
         ] : user.plan === 'PROFESSIONAL' ? [
-          'Up to 50,000 requests/month',
+          'Up to 1,000,000 tokens/month',
           'Smart AI routing',
           'All AI models',
           'Priority support',
           'Advanced analytics',
           'Custom integrations'
         ] : [
-          'Unlimited requests',
+          'Unlimited tokens',
           'Smart AI routing',
           'All AI models',
           'Dedicated support',

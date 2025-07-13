@@ -47,8 +47,9 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
 
-    // Count requests for this month
-    const currentUsage = await prisma.request.count({
+    // Count tokens for this month
+    const currentTokens = await prisma.request.aggregate({
+      _sum: { tokens: true },
       where: {
         userId: user.id,
         createdAt: {
@@ -56,33 +57,33 @@ export async function POST(req: NextRequest) {
         }
       }
     });
+    const tokensUsed = currentTokens._sum.tokens || 0;
 
     // Calculate usage based on plan
-    const planLimits: Record<string, number> = {
-      STARTER: 10,
-      PROFESSIONAL: 50000,
+    const planTokenLimits: Record<string, number> = {
+      STARTER: 1000,
+      PROFESSIONAL: 1000000,
       ENTERPRISE: -1 // Unlimited
     };
-
-    const planLimit = planLimits[user.plan] || 10;
+    const planLimit = planTokenLimits[user.plan] || 1000;
     const isUnlimited = user.plan === 'ENTERPRISE';
-    const usagePercentage = isUnlimited ? 0 : (currentUsage / planLimit) * 100;
-    const remainingRequests = isUnlimited ? -1 : Math.max(0, planLimit - currentUsage);
+    const usagePercentage = isUnlimited ? 0 : (tokensUsed / planLimit) * 100;
+    const remainingTokens = isUnlimited ? -1 : Math.max(0, planLimit - tokensUsed);
 
-    // Check if user has exceeded their limit
-    if (!isUnlimited && currentUsage >= planLimit) {
+    // Check if user has exceeded their token limit
+    if (!isUnlimited && tokensUsed >= planLimit) {
       return NextResponse.json({
-        error: `You've reached your monthly limit of ${planLimit} requests. Please upgrade your plan to continue.`,
+        error: `You've reached your monthly limit of ${planLimit} tokens. Please upgrade your plan to continue.`,
         usage: {
-          currentUsage,
+          tokensUsed,
           planLimit,
-          remainingRequests,
+          remainingTokens,
           usagePercentage,
           isUnlimited,
           plan: {
             name: user.plan,
-            requests: planLimit,
-            price: user.plan === 'PROFESSIONAL' ? 29 : 0
+            tokens: planLimit,
+            price: user.plan === 'PROFESSIONAL' ? 39 : 0
           }
         },
         requiresUpgrade: true
@@ -197,15 +198,15 @@ export async function POST(req: NextRequest) {
 
     // Updated usage after saving
     const updatedUsage = {
-      currentUsage: currentUsage + 1,
+      tokensUsed: tokensUsed + tokens,
       planLimit,
-      remainingRequests: isUnlimited ? -1 : Math.max(0, planLimit - (currentUsage + 1)),
-      usagePercentage: isUnlimited ? 0 : ((currentUsage + 1) / planLimit) * 100,
+      remainingTokens: isUnlimited ? -1 : Math.max(0, planLimit - (tokensUsed + tokens)),
+      usagePercentage: isUnlimited ? 0 : ((tokensUsed + tokens) / planLimit) * 100,
       isUnlimited,
       plan: {
         name: user.plan,
-        requests: planLimit,
-        price: user.plan === 'PROFESSIONAL' ? 29 : 0
+        tokens: planLimit,
+        price: user.plan === 'PROFESSIONAL' ? 39 : 0
       }
     };
 
@@ -216,7 +217,7 @@ export async function POST(req: NextRequest) {
       model: routing.selectedModel.name,
       reasoning: routing.reasoning,
       usage: updatedUsage,
-      remainingRequests: updatedUsage.remainingRequests,
+      remainingTokens: updatedUsage.remainingTokens,
       filesProcessed: files.length,
       fileTypes: fileTypes,
       hasImages,

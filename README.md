@@ -181,7 +181,7 @@ Files are stored securely with the following features:
 
 ### Plan Tiers
 - **Starter**: 1,000 requests/month (free)
-- **Professional**: 50,000 requests/month ($29/month, $290/year)
+- **Professional**: 50,000 requests/month ($39/month, $390/year)
 - **Enterprise**: Unlimited requests ($299/month, $2990/year)
 
 ### File Limits

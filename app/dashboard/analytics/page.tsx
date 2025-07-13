@@ -448,7 +448,7 @@ export default function AnalyticsPage() {
                 <Card className="border-2 border-primary/20 hover:border-primary/40 transition-colors cursor-pointer">
                   <CardHeader>
                     <CardTitle className="text-lg">Professional</CardTitle>
-                    <div className="text-2xl font-bold">$29<span className="text-sm font-normal text-muted-foreground">/month</span></div>
+                    <div className="text-2xl font-bold">$39<span className="text-sm font-normal text-muted-foreground">/month</span></div>
                   </CardHeader>
                   <CardContent>
                     <ul className="space-y-2 text-sm">

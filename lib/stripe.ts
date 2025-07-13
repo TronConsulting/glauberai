@@ -40,7 +40,7 @@ export const PLANS = {
   professional: {
     name: 'Professional',
     description: 'For growing businesses and teams',
-    price: { monthly: 29, annual: 290 },
+    price: { monthly: 39, annual: 390 },
     requests: '50,000',
     features: [
       'Up to 50,000 requests/month',

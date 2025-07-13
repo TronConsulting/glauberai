@@ -3,10 +3,10 @@ import { supabase } from './supabase';
 export const PLAN_LIMITS = {
   STARTER: {
     name: 'Starter',
-    requests: 10,
+    tokens: 1000,
     price: 0,
     features: [
-      'Up to 10 requests/month',
+      'Up to 1,000 tokens/month',
       'Smart AI routing',
       'All AI models',
       'Standard support',
@@ -15,10 +15,10 @@ export const PLAN_LIMITS = {
   },
   PROFESSIONAL: {
     name: 'Professional',
-    requests: 50000,
-    price: 29,
+    tokens: 1000000, // effectively unlimited for now
+    price: 39,
     features: [
-      'Up to 50,000 requests/month',
+      'Up to 1,000,000 tokens/month',
       'Advanced AI routing',
       'All 15+ AI models',
       'Priority support',
@@ -32,10 +32,10 @@ export const PLAN_LIMITS = {
   },
   ENTERPRISE: {
     name: 'Enterprise',
-    requests: -1, // Unlimited
+    tokens: -1, // Unlimited
     price: 299,
     features: [
-      'Unlimited requests',
+      'Unlimited tokens',
       'Custom AI routing logic',
       'All AI models + custom models',
       'Dedicated support manager',
@@ -78,7 +78,7 @@ export async function getUserUsage(userId: string) {
   }
 
   const currentUsage = requests?.length || 0;
-  const planLimit = PLAN_LIMITS[user.plan as keyof typeof PLAN_LIMITS]?.requests || 10;
+  const planLimit = PLAN_LIMITS[user.plan as keyof typeof PLAN_LIMITS]?.tokens || 1000;
   const isUnlimited = planLimit === -1;
   const remainingRequests = isUnlimited ? -1 : Math.max(0, planLimit - currentUsage);
   const usagePercentage = isUnlimited ? 0 : (currentUsage / planLimit) * 100;
@@ -105,7 +105,7 @@ export async function canMakeRequest(userId: string): Promise<{ allowed: boolean
     if (usage.currentUsage >= usage.planLimit) {
       return { 
         allowed: false, 
-        reason: `You've reached your monthly limit of ${usage.planLimit} requests. Please upgrade your plan to continue.`,
+        reason: `You've reached your monthly limit of ${usage.planLimit} tokens. Please upgrade your plan to continue.`,
         usage 
       };
     }

@@ -1,8 +1,6 @@
 'use client';
 
-import { useState } from 'react';
-import { useSession } from 'next-auth/react';
-
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
@@ -23,11 +21,41 @@ import {
   Loader2
 } from 'lucide-react';
 
+interface User {
+  id: string;
+  email: string;
+  fullName?: string;
+  plan: 'STARTER' | 'PROFESSIONAL' | 'ENTERPRISE';
+  stripeCustomerId?: string;
+}
+
 export default function PricingPage() {
   const [isAnnual, setIsAnnual] = useState(false);
   const [loading, setLoading] = useState<string | null>(null);
-  const { data: session } = useSession();
-  const userEmail = session?.user?.email;
+  const [user, setUser] = useState<User | null>(null);
+  const [authLoading, setAuthLoading] = useState(true);
+
+  useEffect(() => {
+    // Get current user
+    const fetchUser = async () => {
+      try {
+        const response = await fetch('/api/auth/me');
+        if (response.ok) {
+          const userData = await response.json();
+          setUser(userData);
+        } else {
+          setUser(null);
+        }
+      } catch (error) {
+        console.error('Error fetching user:', error);
+        setUser(null);
+      } finally {
+        setAuthLoading(false);
+      }
+    };
+    
+    fetchUser();
+  }, []);
 
   const plans = [
     {
@@ -119,17 +147,23 @@ export default function PricingPage() {
       return;
     }
 
+    // Check if user is logged in
+    if (!user) {
+      toast.error('Please sign in to subscribe to a plan');
+      return;
+    }
+
     setLoading(planName);
     
     try {
-      // In a real app, you'd get the user's email from your auth context      
       const response = await fetch('/api/stripe/checkout', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           plan: planName.toLowerCase(),
           billingCycle: isAnnual ? 'annual' : 'monthly',
-          email: userEmail
+          email: user.email,
+          userId: user.id
         })
       });
 

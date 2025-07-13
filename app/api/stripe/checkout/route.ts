@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import Stripe from 'stripe';
+import { prisma } from '@/lib/prisma';
 
 const STRIPE_SECRET_KEY = process.env.STRIPE_SECRET_KEY || '';
 
@@ -32,11 +33,11 @@ export async function POST(req: NextRequest) {
       }, { status: 503 });
     }
 
-    const { plan, billingCycle, email, customerId } = await req.json();
+    const { plan, billingCycle, email, userId } = await req.json();
     
-    if (!plan || !billingCycle || !email) {
+    if (!plan || !billingCycle || !email || !userId) {
       return NextResponse.json({ 
-        error: 'Missing required fields: plan, billingCycle, email' 
+        error: 'Missing required fields: plan, billingCycle, email, userId' 
       }, { status: 400 });
     }
 
@@ -65,17 +66,35 @@ export async function POST(req: NextRequest) {
 
     const price = prices.data[0];
 
-    // Create or get customer
+    // Get or create user from database
+    const user = await prisma.user.findUnique({
+      where: { id: userId }
+    });
+
+    if (!user) {
+      return NextResponse.json({ 
+        error: 'User not found' 
+      }, { status: 404 });
+    }
+
+    // Create or get Stripe customer
     let customer;
-    if (customerId) {
-      customer = await stripe.customers.retrieve(customerId as string);
+    if (user.stripeCustomerId) {
+      customer = await stripe.customers.retrieve(user.stripeCustomerId);
     } else {
       customer = await stripe.customers.create({
         email,
         metadata: {
+          userId: user.id,
           plan,
           billingCycle
         }
+      });
+
+      // Update user with Stripe customer ID
+      await prisma.user.update({
+        where: { id: user.id },
+        data: { stripeCustomerId: customer.id }
       });
     }
 
@@ -91,12 +110,14 @@ export async function POST(req: NextRequest) {
       success_url: `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/payment/success?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/payment/cancel`,
       metadata: {
+        userId: user.id,
         plan,
         billingCycle,
         customerId: customer.id
       },
       subscription_data: {
         metadata: {
+          userId: user.id,
           plan,
           billingCycle,
           customerId: customer.id

@@ -1,18 +1,22 @@
 import { NextRequest, NextResponse } from 'next/server';
 import Stripe from 'stripe';
-import { headers } from 'next/headers';
+import { prisma } from '@/lib/prisma';
 
 const STRIPE_SECRET_KEY = process.env.STRIPE_SECRET_KEY || '';
 const STRIPE_WEBHOOK_SECRET = process.env.STRIPE_WEBHOOK_SECRET || '';
-const stripe = new Stripe(STRIPE_SECRET_KEY, { apiVersion: '2023-10-16' });
+
+const stripe = STRIPE_SECRET_KEY ? new Stripe(STRIPE_SECRET_KEY, { apiVersion: '2023-10-16' }) : null;
 
 export async function POST(req: NextRequest) {
-  const body = await req.text();
-  const headersList = await headers();
-  const signature = headersList.get('stripe-signature');
+  if (!stripe) {
+    return NextResponse.json({ error: 'Stripe not configured' }, { status: 500 });
+  }
 
-  if (!signature) {
-    return NextResponse.json({ error: 'No signature' }, { status: 400 });
+  const body = await req.text();
+  const signature = req.headers.get('stripe-signature');
+
+  if (!signature || !STRIPE_WEBHOOK_SECRET) {
+    return NextResponse.json({ error: 'Missing signature or webhook secret' }, { status: 400 });
   }
 
   let event: Stripe.Event;
@@ -26,6 +30,10 @@ export async function POST(req: NextRequest) {
 
   try {
     switch (event.type) {
+      case 'checkout.session.completed':
+        await handleCheckoutSessionCompleted(event.data.object as Stripe.Checkout.Session);
+        break;
+      
       case 'customer.subscription.created':
         await handleSubscriptionCreated(event.data.object as Stripe.Subscription);
         break;
@@ -39,15 +47,11 @@ export async function POST(req: NextRequest) {
         break;
       
       case 'invoice.payment_succeeded':
-        await handlePaymentSucceeded(event.data.object as Stripe.Invoice);
+        await handleInvoicePaymentSucceeded(event.data.object as Stripe.Invoice);
         break;
       
       case 'invoice.payment_failed':
-        await handlePaymentFailed(event.data.object as Stripe.Invoice);
-        break;
-      
-      case 'customer.subscription.trial_will_end':
-        await handleTrialWillEnd(event.data.object as Stripe.Subscription);
+        await handleInvoicePaymentFailed(event.data.object as Stripe.Invoice);
         break;
       
       default:
@@ -56,63 +60,161 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ received: true });
   } catch (error) {
-    console.error('Webhook handler error:', error);
-    return NextResponse.json({ error: 'Webhook handler failed' }, { status: 500 });
+    console.error('Error processing webhook:', error);
+    return NextResponse.json({ error: 'Webhook processing failed' }, { status: 500 });
   }
 }
 
+async function handleCheckoutSessionCompleted(session: Stripe.Checkout.Session) {
+  const userId = session.metadata?.userId;
+  const plan = session.metadata?.plan;
+  const billingCycle = session.metadata?.billingCycle;
+
+  if (!userId || !plan || !billingCycle) {
+    console.error('Missing metadata in checkout session');
+    return;
+  }
+
+  // Update user plan
+  await prisma.user.update({
+    where: { id: userId },
+    data: { 
+      plan: plan.toUpperCase() as 'STARTER' | 'PROFESSIONAL' | 'ENTERPRISE'
+    }
+  });
+
+  // Create billing record
+  await prisma.billing.create({
+    data: {
+      userId,
+      plan: plan.toUpperCase() as 'STARTER' | 'PROFESSIONAL' | 'ENTERPRISE',
+      amount: session.amount_total || 0,
+      status: 'paid',
+      period: billingCycle,
+      startDate: new Date(),
+      endDate: new Date(Date.now() + (billingCycle === 'annual' ? 365 : 30) * 24 * 60 * 60 * 1000)
+    }
+  });
+}
+
 async function handleSubscriptionCreated(subscription: Stripe.Subscription) {
-  console.log('Subscription created:', subscription.id);
-  // TODO: Update user's subscription status in your database
-  // await updateUserSubscription(subscription.customer as string, {
-  //   status: subscription.status,
-  //   plan: subscription.metadata.plan,
-  //   billingCycle: subscription.metadata.billingCycle,
-  //   currentPeriodEnd: new Date(subscription.current_period_end * 1000)
-  // });
+  const userId = subscription.metadata?.userId;
+  const plan = subscription.metadata?.plan;
+  const billingCycle = subscription.metadata?.billingCycle;
+
+  if (!userId || !plan || !billingCycle) {
+    console.error('Missing metadata in subscription');
+    return;
+  }
+
+  // Create subscription record
+  await prisma.subscription.create({
+    data: {
+      userId,
+      stripeSubscriptionId: subscription.id,
+      stripePriceId: subscription.items.data[0]?.price.id || '',
+      stripeCustomerId: subscription.customer as string,
+      status: subscription.status,
+      plan: plan.toUpperCase() as 'STARTER' | 'PROFESSIONAL' | 'ENTERPRISE',
+      billingCycle,
+      currentPeriodStart: new Date(subscription.current_period_start * 1000),
+      currentPeriodEnd: new Date(subscription.current_period_end * 1000),
+      cancelAtPeriodEnd: subscription.cancel_at_period_end
+    }
+  });
 }
 
 async function handleSubscriptionUpdated(subscription: Stripe.Subscription) {
-  console.log('Subscription updated:', subscription.id);
-  // TODO: Update user's subscription status in your database
-  // await updateUserSubscription(subscription.customer as string, {
-  //   status: subscription.status,
-  //   plan: subscription.metadata.plan,
-  //   billingCycle: subscription.metadata.billingCycle,
-  //   currentPeriodEnd: new Date(subscription.current_period_end * 1000)
-  // });
+  const userId = subscription.metadata?.userId;
+
+  if (!userId) {
+    console.error('Missing userId in subscription metadata');
+    return;
+  }
+
+  // Update subscription record
+  await prisma.subscription.updateMany({
+    where: { stripeSubscriptionId: subscription.id },
+    data: {
+      status: subscription.status,
+      currentPeriodStart: new Date(subscription.current_period_start * 1000),
+      currentPeriodEnd: new Date(subscription.current_period_end * 1000),
+      cancelAtPeriodEnd: subscription.cancel_at_period_end,
+      updatedAt: new Date()
+    }
+  });
 }
 
 async function handleSubscriptionDeleted(subscription: Stripe.Subscription) {
-  console.log('Subscription deleted:', subscription.id);
-  // TODO: Update user's subscription status in your database
-  // await updateUserSubscription(subscription.customer as string, {
-  //   status: 'canceled',
-  //   plan: null,
-  //   billingCycle: null,
-  //   currentPeriodEnd: null
-  // });
+  const userId = subscription.metadata?.userId;
+
+  if (!userId) {
+    console.error('Missing userId in subscription metadata');
+    return;
+  }
+
+  // Update subscription status
+  await prisma.subscription.updateMany({
+    where: { stripeSubscriptionId: subscription.id },
+    data: {
+      status: 'canceled',
+      updatedAt: new Date()
+    }
+  });
+
+  // Reset user plan to starter
+  await prisma.user.update({
+    where: { id: userId },
+    data: { plan: 'STARTER' }
+  });
 }
 
-async function handlePaymentSucceeded(invoice: Stripe.Invoice) {
-  console.log('Payment succeeded:', invoice.id);
-  // TODO: Handle successful payment
-  // - Update user's payment status
-  // - Send confirmation email
-  // - Update usage limits
+async function handleInvoicePaymentSucceeded(invoice: Stripe.Invoice) {
+  const subscriptionId = invoice.subscription as string;
+  
+  if (!subscriptionId) return;
+
+  const subscription = await prisma.subscription.findFirst({
+    where: { stripeSubscriptionId: subscriptionId }
+  });
+
+  if (!subscription) return;
+
+  // Create billing record
+  await prisma.billing.create({
+    data: {
+      userId: subscription.userId,
+      plan: subscription.plan,
+      amount: invoice.amount_paid,
+      status: 'paid',
+      period: subscription.billingCycle,
+      startDate: subscription.currentPeriodStart,
+      endDate: subscription.currentPeriodEnd
+    }
+  });
 }
 
-async function handlePaymentFailed(invoice: Stripe.Invoice) {
-  console.log('Payment failed:', invoice.id);
-  // TODO: Handle failed payment
-  // - Send payment failure notification
-  // - Update user's payment status
-  // - Consider downgrading subscription
-}
+async function handleInvoicePaymentFailed(invoice: Stripe.Invoice) {
+  const subscriptionId = invoice.subscription as string;
+  
+  if (!subscriptionId) return;
 
-async function handleTrialWillEnd(subscription: Stripe.Subscription) {
-  console.log('Trial will end:', subscription.id);
-  // TODO: Send trial ending notification
-  // - Send email to user about trial ending
-  // - Offer discount or upgrade options
+  const subscription = await prisma.subscription.findFirst({
+    where: { stripeSubscriptionId: subscriptionId }
+  });
+
+  if (!subscription) return;
+
+  // Create failed billing record
+  await prisma.billing.create({
+    data: {
+      userId: subscription.userId,
+      plan: subscription.plan,
+      amount: invoice.amount_due,
+      status: 'failed',
+      period: subscription.billingCycle,
+      startDate: subscription.currentPeriodStart,
+      endDate: subscription.currentPeriodEnd
+    }
+  });
 } 

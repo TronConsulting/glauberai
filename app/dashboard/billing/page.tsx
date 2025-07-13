@@ -1,326 +1,277 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Separator } from '@/components/ui/separator';
+import { Header } from '@/components/layout/header';
+import { Footer } from '@/components/layout/footer';
+import { toast } from 'sonner';
 import { 
   CreditCard, 
   Calendar, 
   DollarSign, 
   CheckCircle, 
-  XCircle, 
-  AlertCircle,
-  ExternalLink,
-  RefreshCw
+  XCircle,
+  Clock,
+  Loader2
 } from 'lucide-react';
-import { toast } from 'sonner';
+
+interface User {
+  id: string;
+  email: string;
+  fullName?: string;
+  plan: 'STARTER' | 'PROFESSIONAL' | 'ENTERPRISE';
+  stripeCustomerId?: string;
+}
 
 interface Subscription {
   id: string;
+  stripeSubscriptionId: string;
+  plan: 'STARTER' | 'PROFESSIONAL' | 'ENTERPRISE';
   status: string;
-  current_period_end: number;
-  cancel_at_period_end: boolean;
-  metadata: {
-    plan: string;
-    billingCycle: string;
-  };
+  billingCycle: string;
+  currentPeriodStart: string;
+  currentPeriodEnd: string;
+  cancelAtPeriodEnd: boolean;
 }
 
-interface Customer {
+interface BillingRecord {
   id: string;
-  email: string;
-  name?: string;
+  plan: 'STARTER' | 'PROFESSIONAL' | 'ENTERPRISE';
+  amount: number;
+  status: string;
+  period: string;
+  startDate: string;
+  endDate: string;
+  createdAt: string;
 }
 
 export default function BillingPage() {
-  const searchParams = useSearchParams();
+  const [user, setUser] = useState<User | null>(null);
+  const [subscription, setSubscription] = useState<Subscription | null>(null);
+  const [billingHistory, setBillingHistory] = useState<BillingRecord[]>([]);
   const [loading, setLoading] = useState(true);
-  const [customer, setCustomer] = useState<Customer | null>(null);
-  const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
-  const [activeSubscription, setActiveSubscription] = useState<Subscription | null>(null);
+  const [portalLoading, setPortalLoading] = useState(false);
 
   useEffect(() => {
-    // Check for success/cancel parameters
-    const success = searchParams.get('success');
-    const canceled = searchParams.get('canceled');
-    const sessionId = searchParams.get('session_id');
+    fetchUserData();
+  }, []);
 
-    if (success === '1') {
-      toast.success('Payment successful! Your subscription is now active.');
-    } else if (canceled === '1') {
-      toast.error('Payment was canceled.');
-    }
-
-    // Load customer data (in a real app, this would come from your auth system)
-    loadCustomerData();
-  }, [searchParams]);
-
-  const loadCustomerData = async () => {
+  const fetchUserData = async () => {
     try {
-      // In a real app, you'd get the user's email from your auth context
-      const userEmail = 'demo@example.com'; // Replace with actual user email
-      
-      const response = await fetch(`/api/stripe/customer?email=${userEmail}`);
-      const data = await response.json();
-
-      if (response.ok) {
-        setCustomer(data.customer);
-        setSubscriptions(data.subscriptions);
+      // Fetch user data
+      const userResponse = await fetch('/api/auth/me');
+      if (userResponse.ok) {
+        const userData = await userResponse.json();
+        setUser(userData);
         
-        // Find active subscription
-        const active = data.subscriptions.find((sub: Subscription) => 
-          ['active', 'trialing'].includes(sub.status)
-        );
-        setActiveSubscription(active || null);
-      } else {
-        console.error('Failed to load customer data:', data.error);
+        // Fetch subscription data
+        const subscriptionResponse = await fetch('/api/billing/subscription');
+        if (subscriptionResponse.ok) {
+          const subscriptionData = await subscriptionResponse.json();
+          setSubscription(subscriptionData);
+        }
+        
+        // Fetch billing history
+        const historyResponse = await fetch('/api/billing/history');
+        if (historyResponse.ok) {
+          const historyData = await historyResponse.json();
+          setBillingHistory(historyData);
+        }
       }
     } catch (error) {
-      console.error('Error loading customer data:', error);
+      console.error('Error fetching user data:', error);
+      toast.error('Failed to load billing information');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleManageBilling = async () => {
-    try {
-      if (!customer) {
-        toast.error('Customer information not found');
-        return;
-      }
+  const openBillingPortal = async () => {
+    if (!user?.stripeCustomerId) {
+      toast.error('No billing information available');
+      return;
+    }
 
-      const response = await fetch('/api/stripe/portal', {
+    setPortalLoading(true);
+    try {
+      const response = await fetch('/api/stripe/billing-portal', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ customerId: customer.id })
+        body: JSON.stringify({ customerId: user.stripeCustomerId })
       });
 
       const data = await response.json();
-
       if (response.ok && data.url) {
         window.location.href = data.url;
       } else {
-        toast.error('Failed to open billing portal');
+        toast.error(data.error || 'Failed to open billing portal');
       }
     } catch (error) {
       console.error('Error opening billing portal:', error);
       toast.error('Failed to open billing portal');
+    } finally {
+      setPortalLoading(false);
     }
   };
 
-  const formatDate = (timestamp: number) => {
-    return new Date(timestamp * 1000).toLocaleDateString('en-US', {
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString('en-US', {
       year: 'numeric',
       month: 'long',
       day: 'numeric'
     });
   };
 
+  const formatCurrency = (amount: number) => {
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: 'USD'
+    }).format(amount / 100); // Convert from cents
+  };
+
   const getStatusBadge = (status: string) => {
-    switch (status) {
+    switch (status.toLowerCase()) {
       case 'active':
         return <Badge className="bg-green-500">Active</Badge>;
-      case 'trialing':
-        return <Badge className="bg-blue-500">Trial</Badge>;
       case 'canceled':
         return <Badge variant="destructive">Canceled</Badge>;
       case 'past_due':
-        return <Badge variant="destructive">Past Due</Badge>;
+        return <Badge className="bg-yellow-500">Past Due</Badge>;
+      case 'paid':
+        return <Badge className="bg-green-500">Paid</Badge>;
+      case 'pending':
+        return <Badge className="bg-yellow-500">Pending</Badge>;
       default:
-        return <Badge variant="secondary">{status}</Badge>;
-    }
-  };
-
-  const getPlanDisplayName = (plan: string) => {
-    switch (plan) {
-      case 'starter':
-        return 'Starter';
-      case 'professional':
-        return 'Professional';
-      case 'enterprise':
-        return 'Enterprise';
-      default:
-        return plan;
+        return <Badge variant="outline">{status}</Badge>;
     }
   };
 
   if (loading) {
     return (
       <div className="min-h-screen bg-background">
-        <div className="container py-24">
-          <div className="flex items-center justify-center">
-            <RefreshCw className="h-8 w-8 animate-spin" />
-            <span className="ml-2">Loading billing information...</span>
+        <Header />
+        <main className="py-24">
+          <div className="container">
+            <div className="flex items-center justify-center">
+              <Loader2 className="h-8 w-8 animate-spin" />
+            </div>
           </div>
-        </div>
+        </main>
+        <Footer />
       </div>
     );
   }
 
   return (
     <div className="min-h-screen bg-background">
-      <div className="container py-24">
-        <div className="max-w-4xl mx-auto space-y-8">
-          {/* Header */}
-          <div className="text-center space-y-4">
-            <h1 className="text-4xl font-bold">Billing & Subscription</h1>
-            <p className="text-xl text-muted-foreground">
-              Manage your subscription and billing information
-            </p>
-          </div>
+      <Header />
+      
+      <main className="py-24">
+        <div className="container">
+          <div className="space-y-8">
+            {/* Header */}
+            <div className="space-y-4">
+              <h1 className="text-4xl font-bold">Billing & Subscription</h1>
+              <p className="text-muted-foreground">
+                Manage your subscription and view billing history
+              </p>
+            </div>
 
-          {/* Current Subscription */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center space-x-2">
-                <CreditCard className="h-5 w-5" />
-                <span>Current Subscription</span>
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              {activeSubscription ? (
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h3 className="text-lg font-semibold">
-                        {getPlanDisplayName(activeSubscription.metadata.plan)} Plan
-                      </h3>
-                      <p className="text-sm text-muted-foreground">
-                        {activeSubscription.metadata.billingCycle === 'annual' ? 'Annual' : 'Monthly'} billing
-                      </p>
-                    </div>
-                    {getStatusBadge(activeSubscription.status)}
+            {/* Current Plan */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <CreditCard className="h-5 w-5" />
+                  Current Plan
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="font-semibold text-lg capitalize">{user?.plan?.toLowerCase()} Plan</h3>
+                    <p className="text-muted-foreground">
+                      {user?.plan === 'STARTER' ? 'Free tier' : 'Paid subscription'}
+                    </p>
                   </div>
-                  
-                  <Separator />
-                  
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="flex items-center space-x-2">
-                      <Calendar className="h-4 w-4 text-muted-foreground" />
-                      <div>
-                        <p className="text-sm font-medium">Next billing date</p>
-                        <p className="text-sm text-muted-foreground">
-                          {formatDate(activeSubscription.current_period_end)}
-                        </p>
-                      </div>
-                    </div>
-                    
-                    <div className="flex items-center space-x-2">
-                      <DollarSign className="h-4 w-4 text-muted-foreground" />
-                      <div>
-                        <p className="text-sm font-medium">Billing cycle</p>
-                        <p className="text-sm text-muted-foreground">
-                          {activeSubscription.metadata.billingCycle === 'annual' ? 'Annual' : 'Monthly'}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-
-                  {activeSubscription.cancel_at_period_end && (
-                    <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-                      <div className="flex items-center space-x-2">
-                        <AlertCircle className="h-4 w-4 text-yellow-600" />
-                        <p className="text-sm text-yellow-800">
-                          Your subscription will be canceled at the end of the current billing period.
-                        </p>
-                      </div>
-                    </div>
+                  {user?.plan !== 'STARTER' && (
+                    <Button 
+                      onClick={openBillingPortal}
+                      disabled={portalLoading || !user?.stripeCustomerId}
+                    >
+                      {portalLoading ? (
+                        <>
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          Loading...
+                        </>
+                      ) : (
+                        'Manage Subscription'
+                      )}
+                    </Button>
                   )}
                 </div>
-              ) : (
-                <div className="text-center py-8">
-                  <XCircle className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                  <h3 className="text-lg font-semibold mb-2">No active subscription</h3>
-                  <p className="text-muted-foreground mb-4">
-                    You don't have an active subscription. Choose a plan to get started.
-                  </p>
-                  <Button asChild>
-                    <a href="/pricing">View Plans</a>
-                  </Button>
-                </div>
-              )}
-            </CardContent>
-          </Card>
 
-          {/* Billing Actions */}
-          {activeSubscription && (
-            <Card>
-              <CardHeader>
-                <CardTitle>Billing Management</CardTitle>
-                <CardDescription>
-                  Manage your payment methods, view invoices, and update your subscription
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <Button onClick={handleManageBilling} className="w-full">
-                  <ExternalLink className="h-4 w-4 mr-2" />
-                  Manage Billing
-                </Button>
-              </CardContent>
-            </Card>
-          )}
-
-          {/* Subscription History */}
-          {subscriptions.length > 0 && (
-            <Card>
-              <CardHeader>
-                <CardTitle>Subscription History</CardTitle>
-                <CardDescription>
-                  Your past and current subscriptions
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  {subscriptions.map((subscription) => (
-                    <div key={subscription.id} className="flex items-center justify-between p-4 border rounded-lg">
-                      <div>
-                        <h4 className="font-medium">
-                          {getPlanDisplayName(subscription.metadata.plan)} Plan
-                        </h4>
-                        <p className="text-sm text-muted-foreground">
-                          {subscription.metadata.billingCycle === 'annual' ? 'Annual' : 'Monthly'} • 
-                          Ends {formatDate(subscription.current_period_end)}
-                        </p>
-                      </div>
+                {subscription && (
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-4 border-t">
+                    <div className="space-y-2">
+                      <p className="text-sm text-muted-foreground">Status</p>
                       {getStatusBadge(subscription.status)}
                     </div>
-                  ))}
-                </div>
+                    <div className="space-y-2">
+                      <p className="text-sm text-muted-foreground">Billing Cycle</p>
+                      <p className="font-medium capitalize">{subscription.billingCycle}</p>
+                    </div>
+                    <div className="space-y-2">
+                      <p className="text-sm text-muted-foreground">Next Billing</p>
+                      <p className="font-medium">{formatDate(subscription.currentPeriodEnd)}</p>
+                    </div>
+                  </div>
+                )}
               </CardContent>
             </Card>
-          )}
 
-          {/* Customer Information */}
-          {customer && (
+            {/* Billing History */}
             <Card>
               <CardHeader>
-                <CardTitle>Account Information</CardTitle>
+                <CardTitle className="flex items-center gap-2">
+                  <DollarSign className="h-5 w-5" />
+                  Billing History
+                </CardTitle>
+                <CardDescription>
+                  Your recent billing transactions
+                </CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="space-y-2">
-                  <div>
-                    <p className="text-sm font-medium">Email</p>
-                    <p className="text-sm text-muted-foreground">{customer.email}</p>
+                {billingHistory.length === 0 ? (
+                  <div className="text-center py-8">
+                    <p className="text-muted-foreground">No billing history available</p>
                   </div>
-                  {customer.name && (
-                    <div>
-                      <p className="text-sm font-medium">Name</p>
-                      <p className="text-sm text-muted-foreground">{customer.name}</p>
-                    </div>
-                  )}
-                  <div>
-                    <p className="text-sm font-medium">Customer ID</p>
-                    <p className="text-sm text-muted-foreground font-mono">{customer.id}</p>
+                ) : (
+                  <div className="space-y-4">
+                    {billingHistory.map((record) => (
+                      <div key={record.id} className="flex items-center justify-between p-4 border rounded-lg">
+                        <div className="space-y-1">
+                          <p className="font-medium capitalize">{record.plan.toLowerCase()} Plan</p>
+                          <p className="text-sm text-muted-foreground">
+                            {formatDate(record.startDate)} - {formatDate(record.endDate)}
+                          </p>
+                        </div>
+                        <div className="text-right space-y-1">
+                          <p className="font-medium">{formatCurrency(record.amount)}</p>
+                          {getStatusBadge(record.status)}
+                        </div>
+                      </div>
+                    ))}
                   </div>
-                </div>
+                )}
               </CardContent>
             </Card>
-          )}
+          </div>
         </div>
-      </div>
+      </main>
+
+      <Footer />
     </div>
   );
 } 

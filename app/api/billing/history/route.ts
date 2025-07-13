@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getAuthCookie, verifyJwt } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 
-export const dynamic = "force-dynamic";
 export async function GET(req: NextRequest) {
   const token = getAuthCookie();
   if (!token) {
@@ -15,25 +14,24 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    const user = await prisma.user.findUnique({
-      where: { id: decoded.id as string },
-      select: {
-        id: true,
-        email: true,
-        fullName: true,
-        plan: true,
-        stripeCustomerId: true,
-        createdAt: true
-      }
+    const billingRecords = await prisma.billing.findMany({
+      where: { userId: decoded.id as string },
+      orderBy: { createdAt: 'desc' },
+      take: 10 // Limit to last 10 records
     });
 
-    if (!user) {
-      return NextResponse.json({ error: 'User not found' }, { status: 404 });
-    }
-
-    return NextResponse.json(user);
+    return NextResponse.json(billingRecords.map(record => ({
+      id: record.id,
+      plan: record.plan,
+      amount: record.amount,
+      status: record.status,
+      period: record.period,
+      startDate: record.startDate,
+      endDate: record.endDate,
+      createdAt: record.createdAt
+    })));
   } catch (error) {
-    console.error('Error fetching user:', error);
+    console.error('Error fetching billing history:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 } 

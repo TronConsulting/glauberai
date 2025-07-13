@@ -19,13 +19,15 @@ model User {
   password  String
   fullName  String?
   plan      UserPlan @default(STARTER)
+  stripeCustomerId String? @unique
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   
   // Relations
-  requests  Request[]
-  billing   Billing[]
-  files     File[]
+  requests     Request[]
+  billing      Billing[]
+  files        File[]
+  subscriptions Subscription[]
 }
 
 model File {
@@ -76,4 +78,23 @@ model Billing {
   
   // Relations
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Subscription {
+  id                    String   @id @default(uuid())
+  userId                String
+  stripeSubscriptionId  String   @unique
+  stripePriceId         String
+  stripeCustomerId      String
+  status                String   // active, canceled, past_due, etc.
+  plan                  UserPlan
+  billingCycle          String   // monthly, annual
+  currentPeriodStart    DateTime
+  currentPeriodEnd      DateTime
+  cancelAtPeriodEnd     Boolean  @default(false)
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+  
+  // Relations
+  user                  User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 } 

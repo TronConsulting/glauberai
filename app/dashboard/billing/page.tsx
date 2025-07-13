@@ -1,238 +1,326 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
-import { DashboardLayout } from '@/components/layout/dashboard-layout';
-import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
+import { useState, useEffect } from 'react';
+import { useSearchParams } from 'next/navigation';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { AlertCircle, CreditCard } from 'lucide-react';
+import { Separator } from '@/components/ui/separator';
+import { 
+  CreditCard, 
+  Calendar, 
+  DollarSign, 
+  CheckCircle, 
+  XCircle, 
+  AlertCircle,
+  ExternalLink,
+  RefreshCw
+} from 'lucide-react';
+import { toast } from 'sonner';
 
-// Replace with your real PayPal client ID
-const PAYPAL_CLIENT_ID = process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID || '';
-const STRIPE_PUBLISHABLE_KEY = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY || '';
+interface Subscription {
+  id: string;
+  status: string;
+  current_period_end: number;
+  cancel_at_period_end: boolean;
+  metadata: {
+    plan: string;
+    billingCycle: string;
+  };
+}
+
+interface Customer {
+  id: string;
+  email: string;
+  name?: string;
+}
 
 export default function BillingPage() {
-  // In a real app, fetch billing info and user email from API or context
-  const plan = 'Starter';
-  const usage = { requests: 120, limit: 1000, cost: 12.34 };
-  const userEmail = 'user@example.com'; // TODO: Replace with real user email
-
-  // PayPal state
-  const [paymentStatus, setPaymentStatus] = useState<'idle'|'success'|'error'|'processing'>('idle');
-  const [error, setError] = useState<string | null>(null);
-  const [paypalLoaded, setPaypalLoaded] = useState(false);
-  const paypalRef = useRef<HTMLDivElement>(null);
-
-  // Stripe state
-  const [stripeStatus, setStripeStatus] = useState<'idle'|'redirecting'|'error'>('idle');
-  const [stripeError, setStripeError] = useState<string | null>(null);
+  const searchParams = useSearchParams();
+  const [loading, setLoading] = useState(true);
+  const [customer, setCustomer] = useState<Customer | null>(null);
+  const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
+  const [activeSubscription, setActiveSubscription] = useState<Subscription | null>(null);
 
   useEffect(() => {
-    if (!paypalRef.current) return;
-    
-    // Check if PayPal is configured
-    if (!PAYPAL_CLIENT_ID) {
-      setError('PayPal is not configured. Please contact support.');
-      return;
+    // Check for success/cancel parameters
+    const success = searchParams.get('success');
+    const canceled = searchParams.get('canceled');
+    const sessionId = searchParams.get('session_id');
+
+    if (success === '1') {
+      toast.success('Payment successful! Your subscription is now active.');
+    } else if (canceled === '1') {
+      toast.error('Payment was canceled.');
     }
 
-    // Dynamically load PayPal JS SDK
-    const scriptId = 'paypal-js';
-    if (!document.getElementById(scriptId)) {
-      const script = document.createElement('script');
-      script.id = scriptId;
-      script.src = `https://www.paypal.com/sdk/js?client-id=${PAYPAL_CLIENT_ID}&currency=USD`;
-      script.async = true;
-      script.onload = renderPayPalButton;
-      script.onerror = () => {
-        setError('Failed to load PayPal. Please try again later.');
-      };
-      document.body.appendChild(script);
-    } else {
-      renderPayPalButton();
-    }
-    
-    function renderPayPalButton() {
-      // @ts-ignore
-      if (window.paypal && paypalRef.current) {
-        setPaypalLoaded(true);
-        // @ts-ignore
-        window.paypal.Buttons({
-          style: { layout: 'vertical', color: 'blue', shape: 'rect', label: 'paypal' },
-          createOrder: (data: any, actions: any) => {
-            setPaymentStatus('processing');
-            return actions.order.create({
-              purchase_units: [
-                {
-                  amount: {
-                    value: usage.cost.toFixed(2),
-                  },
-                  description: `GlauberAI Subscription (${plan} Plan)`
-                }
-              ]
-            });
-          },
-          onApprove: async (data: any, actions: any) => {
-            try {
-              await actions.order.capture();
-              setPaymentStatus('success');
-              setError(null);
-            } catch (err) {
-              setPaymentStatus('error');
-              setError('Payment could not be completed.');
-            }
-          },
-          onError: (err: any) => {
-            setPaymentStatus('error');
-            setError('Payment failed. Please try again.');
-          },
-          onCancel: () => {
-            setPaymentStatus('idle');
-            setError('Payment was cancelled.');
-          }
-        }).render(paypalRef.current);
-      }
-    }
-    
-    // Cleanup
-    return () => {
-      if (paypalRef.current) paypalRef.current.innerHTML = '';
-    };
-  }, [usage.cost, plan]);
+    // Load customer data (in a real app, this would come from your auth system)
+    loadCustomerData();
+  }, [searchParams]);
 
-  // Stripe payment handler
-  const handleStripePayment = async () => {
-    setStripeStatus('redirecting');
-    setStripeError(null);
+  const loadCustomerData = async () => {
     try {
-      const res = await fetch('/api/stripe/checkout', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ plan, amount: usage.cost, email: userEmail })
-      });
-      const data = await res.json();
-      if (res.ok && data.url) {
-        window.location.href = data.url;
+      // In a real app, you'd get the user's email from your auth context
+      const userEmail = 'demo@example.com'; // Replace with actual user email
+      
+      const response = await fetch(`/api/stripe/customer?email=${userEmail}`);
+      const data = await response.json();
+
+      if (response.ok) {
+        setCustomer(data.customer);
+        setSubscriptions(data.subscriptions);
+        
+        // Find active subscription
+        const active = data.subscriptions.find((sub: Subscription) => 
+          ['active', 'trialing'].includes(sub.status)
+        );
+        setActiveSubscription(active || null);
       } else {
-        setStripeStatus('error');
-        setStripeError(data.error || 'Stripe payment failed.');
+        console.error('Failed to load customer data:', data.error);
       }
-    } catch (err) {
-      setStripeStatus('error');
-      setStripeError('Stripe payment failed. Please check your connection.');
+    } catch (error) {
+      console.error('Error loading customer data:', error);
+    } finally {
+      setLoading(false);
     }
   };
 
-  return (
-    <DashboardLayout>
-      <div className="max-w-2xl mx-auto py-10">
-        <Card>
-          <CardHeader>
-            <CardTitle>Billing & Payment</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-6">
-              {/* Current Plan Info */}
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <span className="font-medium">Current Plan</span>
-                  <Badge variant="secondary">{plan}</Badge>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span>Requests Used</span>
-                  <span>{usage.requests} / {usage.limit}</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span>This Month's Cost</span>
-                  <span className="font-semibold">${usage.cost.toFixed(2)}</span>
-                </div>
-              </div>
+  const handleManageBilling = async () => {
+    try {
+      if (!customer) {
+        toast.error('Customer information not found');
+        return;
+      }
 
-              <div className="pt-4 text-muted-foreground text-sm">
-                Choose your preferred payment method below:
-              </div>
+      const response = await fetch('/api/stripe/portal', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ customerId: customer.id })
+      });
 
-              {/* PayPal Payment Option */}
-              <div className="pt-4 pb-6 border-b">
-                <div className="flex items-center gap-2 mb-3">
-                  <div className="w-5 h-5 bg-blue-600 rounded flex items-center justify-center">
-                    <span className="text-white text-xs font-bold">P</span>
-                  </div>
-                  <span className="font-medium">Pay with PayPal</span>
-                </div>
-                
-                {!PAYPAL_CLIENT_ID ? (
-                  <Alert>
-                    <AlertCircle className="h-4 w-4" />
-                    <AlertDescription>
-                      PayPal is not configured. Please contact support to enable PayPal payments.
-                    </AlertDescription>
-                  </Alert>
-                ) : (
-                  <>
-                    <div ref={paypalRef} id="paypal-button-container" className="mb-4"></div>
-                    {!paypalLoaded && (
-                      <div className="text-sm text-muted-foreground">Loading PayPal...</div>
-                    )}
-                    {paymentStatus === 'success' && (
-                      <div className="text-green-600 font-semibold">Payment successful! Thank you for your purchase.</div>
-                    )}
-                    {paymentStatus === 'processing' && (
-                      <div className="text-blue-600 font-medium">Processing payment...</div>
-                    )}
-                    {paymentStatus === 'error' && error && (
-                      <div className="text-red-600 font-medium">{error}</div>
-                    )}
-                    {paymentStatus === 'idle' && error && (
-                      <div className="text-yellow-600 font-medium">{error}</div>
-                    )}
-                    <div className="text-xs text-muted-foreground mt-2">
-                      Secure payment processed by PayPal
-                    </div>
-                  </>
-                )}
-              </div>
+      const data = await response.json();
 
-              {/* Stripe Payment Option */}
-              <div className="pt-4">
-                <div className="flex items-center gap-2 mb-3">
-                  <CreditCard className="w-5 h-5 text-purple-600" />
-                  <span className="font-medium">Pay with Card (Stripe)</span>
-                </div>
-                
-                <button
-                  className="btn-primary w-full py-3 rounded-lg text-white font-semibold"
-                  onClick={handleStripePayment}
-                  disabled={stripeStatus === 'redirecting'}
-                >
-                  {stripeStatus === 'redirecting' ? 'Redirecting to Stripe...' : 'Pay with Card'}
-                </button>
-                
-                {stripeStatus === 'error' && stripeError && (
-                  <Alert className="mt-3">
-                    <AlertCircle className="h-4 w-4" />
-                    <AlertDescription>{stripeError}</AlertDescription>
-                  </Alert>
-                )}
-                
-                <div className="text-xs text-muted-foreground mt-2">
-                  Secure payment processed by Stripe
-                </div>
-              </div>
+      if (response.ok && data.url) {
+        window.location.href = data.url;
+      } else {
+        toast.error('Failed to open billing portal');
+      }
+    } catch (error) {
+      console.error('Error opening billing portal:', error);
+      toast.error('Failed to open billing portal');
+    }
+  };
 
-              {/* Configuration Notice */}
-              {(!PAYPAL_CLIENT_ID || !STRIPE_PUBLISHABLE_KEY) && (
-                <Alert className="mt-6">
-                  <AlertCircle className="h-4 w-4" />
-                  <AlertDescription>
-                    Some payment methods are not configured. Please set up your payment provider keys in the environment variables.
-                  </AlertDescription>
-                </Alert>
-              )}
-            </div>
-          </CardContent>
-        </Card>
+  const formatDate = (timestamp: number) => {
+    return new Date(timestamp * 1000).toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    });
+  };
+
+  const getStatusBadge = (status: string) => {
+    switch (status) {
+      case 'active':
+        return <Badge className="bg-green-500">Active</Badge>;
+      case 'trialing':
+        return <Badge className="bg-blue-500">Trial</Badge>;
+      case 'canceled':
+        return <Badge variant="destructive">Canceled</Badge>;
+      case 'past_due':
+        return <Badge variant="destructive">Past Due</Badge>;
+      default:
+        return <Badge variant="secondary">{status}</Badge>;
+    }
+  };
+
+  const getPlanDisplayName = (plan: string) => {
+    switch (plan) {
+      case 'starter':
+        return 'Starter';
+      case 'professional':
+        return 'Professional';
+      case 'enterprise':
+        return 'Enterprise';
+      default:
+        return plan;
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-background">
+        <div className="container py-24">
+          <div className="flex items-center justify-center">
+            <RefreshCw className="h-8 w-8 animate-spin" />
+            <span className="ml-2">Loading billing information...</span>
+          </div>
+        </div>
       </div>
-    </DashboardLayout>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-background">
+      <div className="container py-24">
+        <div className="max-w-4xl mx-auto space-y-8">
+          {/* Header */}
+          <div className="text-center space-y-4">
+            <h1 className="text-4xl font-bold">Billing & Subscription</h1>
+            <p className="text-xl text-muted-foreground">
+              Manage your subscription and billing information
+            </p>
+          </div>
+
+          {/* Current Subscription */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center space-x-2">
+                <CreditCard className="h-5 w-5" />
+                <span>Current Subscription</span>
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {activeSubscription ? (
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h3 className="text-lg font-semibold">
+                        {getPlanDisplayName(activeSubscription.metadata.plan)} Plan
+                      </h3>
+                      <p className="text-sm text-muted-foreground">
+                        {activeSubscription.metadata.billingCycle === 'annual' ? 'Annual' : 'Monthly'} billing
+                      </p>
+                    </div>
+                    {getStatusBadge(activeSubscription.status)}
+                  </div>
+                  
+                  <Separator />
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="flex items-center space-x-2">
+                      <Calendar className="h-4 w-4 text-muted-foreground" />
+                      <div>
+                        <p className="text-sm font-medium">Next billing date</p>
+                        <p className="text-sm text-muted-foreground">
+                          {formatDate(activeSubscription.current_period_end)}
+                        </p>
+                      </div>
+                    </div>
+                    
+                    <div className="flex items-center space-x-2">
+                      <DollarSign className="h-4 w-4 text-muted-foreground" />
+                      <div>
+                        <p className="text-sm font-medium">Billing cycle</p>
+                        <p className="text-sm text-muted-foreground">
+                          {activeSubscription.metadata.billingCycle === 'annual' ? 'Annual' : 'Monthly'}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {activeSubscription.cancel_at_period_end && (
+                    <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                      <div className="flex items-center space-x-2">
+                        <AlertCircle className="h-4 w-4 text-yellow-600" />
+                        <p className="text-sm text-yellow-800">
+                          Your subscription will be canceled at the end of the current billing period.
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="text-center py-8">
+                  <XCircle className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                  <h3 className="text-lg font-semibold mb-2">No active subscription</h3>
+                  <p className="text-muted-foreground mb-4">
+                    You don't have an active subscription. Choose a plan to get started.
+                  </p>
+                  <Button asChild>
+                    <a href="/pricing">View Plans</a>
+                  </Button>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Billing Actions */}
+          {activeSubscription && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Billing Management</CardTitle>
+                <CardDescription>
+                  Manage your payment methods, view invoices, and update your subscription
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Button onClick={handleManageBilling} className="w-full">
+                  <ExternalLink className="h-4 w-4 mr-2" />
+                  Manage Billing
+                </Button>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Subscription History */}
+          {subscriptions.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Subscription History</CardTitle>
+                <CardDescription>
+                  Your past and current subscriptions
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  {subscriptions.map((subscription) => (
+                    <div key={subscription.id} className="flex items-center justify-between p-4 border rounded-lg">
+                      <div>
+                        <h4 className="font-medium">
+                          {getPlanDisplayName(subscription.metadata.plan)} Plan
+                        </h4>
+                        <p className="text-sm text-muted-foreground">
+                          {subscription.metadata.billingCycle === 'annual' ? 'Annual' : 'Monthly'} • 
+                          Ends {formatDate(subscription.current_period_end)}
+                        </p>
+                      </div>
+                      {getStatusBadge(subscription.status)}
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Customer Information */}
+          {customer && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Account Information</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-2">
+                  <div>
+                    <p className="text-sm font-medium">Email</p>
+                    <p className="text-sm text-muted-foreground">{customer.email}</p>
+                  </div>
+                  {customer.name && (
+                    <div>
+                      <p className="text-sm font-medium">Name</p>
+                      <p className="text-sm text-muted-foreground">{customer.name}</p>
+                    </div>
+                  )}
+                  <div>
+                    <p className="text-sm font-medium">Customer ID</p>
+                    <p className="text-sm text-muted-foreground font-mono">{customer.id}</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+        </div>
+      </div>
+    </div>
   );
 } 

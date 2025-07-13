@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import { Header } from '@/components/layout/header';
 import { Footer } from '@/components/layout/footer';
+import { toast } from 'sonner';
 import { 
   Check, 
   ArrowRight, 
@@ -15,11 +16,14 @@ import {
   Crown, 
   Building,
   Star,
-  X
+  X,
+  CreditCard,
+  Loader2
 } from 'lucide-react';
 
 export default function PricingPage() {
   const [isAnnual, setIsAnnual] = useState(false);
+  const [loading, setLoading] = useState<string | null>(null);
 
   const plans = [
     {
@@ -102,6 +106,44 @@ export default function PricingPage() {
     const annualMonthly = price.annual / 12;
     const savings = ((price.monthly - annualMonthly) / price.monthly) * 100;
     return Math.round(savings);
+  };
+
+  const handleSubscribe = async (planName: string) => {
+    if (planName === 'Starter') {
+      // Starter plan is free, redirect to signup
+      window.location.href = '/auth/signup';
+      return;
+    }
+
+    setLoading(planName);
+    
+    try {
+      // In a real app, you'd get the user's email from your auth context
+      const userEmail = 'demo@example.com'; // Replace with actual user email
+      
+      const response = await fetch('/api/stripe/checkout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          plan: planName.toLowerCase(),
+          billingCycle: isAnnual ? 'annual' : 'monthly',
+          email: userEmail
+        })
+      });
+
+      const data = await response.json();
+
+      if (response.ok && data.url) {
+        window.location.href = data.url;
+      } else {
+        toast.error(data.error || 'Failed to create checkout session');
+      }
+    } catch (error) {
+      console.error('Checkout error:', error);
+      toast.error('Failed to start checkout process');
+    } finally {
+      setLoading(null);
+    }
   };
 
   return (
@@ -233,12 +275,25 @@ export default function PricingPage() {
                   <Button 
                     className={`w-full ${plan.popular ? '' : 'variant-outline'}`}
                     variant={plan.popular ? 'default' : 'outline'}
-                    asChild
+                    onClick={() => handleSubscribe(plan.name)}
+                    disabled={loading === plan.name}
                   >
-                    <Link href="/auth/signup">
-                      {plan.name === 'Starter' ? 'Get Started' : 'Start Free Trial'}
-                      <ArrowRight className="ml-2 h-4 w-4" />
-                    </Link>
+                    {loading === plan.name ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Processing...
+                      </>
+                    ) : (
+                      <>
+                        {plan.name === 'Starter' ? 'Get Started' : (
+                          <>
+                            <CreditCard className="mr-2 h-4 w-4" />
+                            Subscribe Now
+                          </>
+                        )}
+                        <ArrowRight className="ml-2 h-4 w-4" />
+                      </>
+                    )}
                   </Button>
                 </CardFooter>
               </Card>

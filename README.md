@@ -1,6 +1,6 @@
 # GlauberAI - Advanced AI Query Platform
 
-A sophisticated AI query platform that intelligently routes user queries to the best AI models based on content type, complexity, and file attachments. Features file storage, real-time AI integration, and comprehensive analytics.
+A sophisticated AI query platform that intelligently routes user queries to the best AI models based on content type, complexity, and file attachments. Features file storage, real-time AI integration, comprehensive analytics, and Stripe-powered subscription management.
 
 ## Features
 
@@ -8,6 +8,7 @@ A sophisticated AI query platform that intelligently routes user queries to the 
 - **File Upload & Storage**: Support for images, documents, audio, and video files with secure storage
 - **Multi-Provider AI Integration**: Support for OpenAI, Anthropic, Google, Cohere, Mistral, Stability AI, and more
 - **Real-time Analytics**: Track usage, model performance, and user behavior
+- **Subscription Management**: Stripe-powered billing with subscription tiers
 - **Usage Limits**: Tiered pricing with monthly request limits
 - **Secure Authentication**: JWT-based session management with Prisma/PostgreSQL
 
@@ -18,6 +19,7 @@ A sophisticated AI query platform that intelligently routes user queries to the 
 - **Database**: PostgreSQL (via Prisma Accelerate)
 - **Authentication**: JWT with HTTP-only cookies
 - **File Storage**: Local file system with database tracking
+- **Payments**: Stripe for subscription management
 - **AI Providers**: OpenAI, Anthropic, Google, Cohere, Mistral, Stability AI
 
 ## Setup Instructions
@@ -40,9 +42,26 @@ GOOGLE_API_KEY="your-google-api-key"
 COHERE_API_KEY="your-cohere-api-key"
 MISTRAL_API_KEY="your-mistral-api-key"
 STABILITY_API_KEY="your-stability-api-key"
+
+# Stripe Configuration (for payments)
+STRIPE_SECRET_KEY="sk_test_your_stripe_secret_key"
+NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY="pk_test_your_stripe_publishable_key"
+STRIPE_WEBHOOK_SECRET="whsec_your_webhook_secret"
+NEXT_PUBLIC_APP_URL="http://localhost:3000"
 ```
 
-### 2. AI Provider Setup
+### 2. Stripe Setup
+
+For detailed Stripe setup instructions, see [STRIPE_SETUP.md](./STRIPE_SETUP.md).
+
+Quick setup:
+1. Create a Stripe account at [stripe.com](https://stripe.com)
+2. Get your API keys from the Stripe Dashboard
+3. Create products and prices in Stripe with the correct lookup keys
+4. Set up webhooks for subscription events
+5. Test the integration with Stripe test cards
+
+### 3. AI Provider Setup
 
 #### OpenAI
 - Sign up at [OpenAI](https://platform.openai.com/)
@@ -73,7 +92,7 @@ STABILITY_API_KEY="your-stability-api-key"
 - Create an API key in your dashboard
 - Supports: Stable Diffusion XL
 
-### 3. Installation
+### 4. Installation
 
 ```bash
 # Install dependencies
@@ -89,7 +108,7 @@ npx prisma db push
 npm run dev
 ```
 
-### 4. Database Setup
+### 5. Database Setup
 
 The application uses Prisma with PostgreSQL. The schema includes:
 
@@ -148,6 +167,12 @@ Files are stored securely with the following features:
 - `GET /api/queries` - Get user's query history
 - `GET /api/usage` - Get usage statistics
 
+### Stripe Payments
+- `POST /api/stripe/checkout` - Create checkout session
+- `POST /api/stripe/portal` - Create billing portal session
+- `POST /api/stripe/webhook` - Handle webhook events
+- `GET /api/stripe/customer` - Get customer information
+
 ### File Management
 - `GET /api/files/[...path]` - Serve uploaded files
 - File uploads handled through `/api/query` endpoint
@@ -155,9 +180,9 @@ Files are stored securely with the following features:
 ## Usage Limits
 
 ### Plan Tiers
-- **Starter**: 10 requests/month (free)
-- **Professional**: 50,000 requests/month ($29/month)
-- **Enterprise**: Unlimited requests (custom pricing)
+- **Starter**: 1,000 requests/month (free)
+- **Professional**: 50,000 requests/month ($29/month, $290/year)
+- **Enterprise**: Unlimited requests ($299/month, $2990/year)
 
 ### File Limits
 - Maximum file size: 10MB per file
@@ -171,14 +196,18 @@ Files are stored securely with the following features:
 GlauberAI/
 ├── app/                    # Next.js app directory
 │   ├── api/               # API routes
+│   │   ├── stripe/        # Stripe payment endpoints
+│   │   └── ...
 │   ├── auth/              # Authentication pages
 │   ├── dashboard/         # Dashboard pages
+│   ├── payment/           # Payment success/cancel pages
 │   └── ...
 ├── components/            # React components
 ├── lib/                   # Utility libraries
 │   ├── ai-routing.ts      # AI model routing logic
 │   ├── ai-integration.ts  # AI provider integration
 │   ├── file-storage.ts    # File storage utilities
+│   ├── stripe.ts          # Stripe configuration
 │   └── ...
 ├── prisma/                # Database schema
 └── public/                # Static assets
@@ -201,6 +230,11 @@ GlauberAI/
 - Metadata extraction
 - User isolation and access control
 
+#### Stripe Integration (`lib/stripe.ts`)
+- Stripe configuration and utilities
+- Price lookup keys and plan definitions
+- Subscription management helpers
+
 ## Deployment
 
 ### Vercel Deployment
@@ -209,7 +243,7 @@ GlauberAI/
 3. Deploy automatically on push to main branch
 
 ### Environment Variables for Production
-Ensure all API keys and database URLs are properly configured in your production environment.
+Ensure all API keys, database URLs, and Stripe configuration are properly set in your production environment.
 
 ## Security Considerations
 
@@ -218,6 +252,8 @@ Ensure all API keys and database URLs are properly configured in your production
 - User data isolation in database and file system
 - API rate limiting and usage tracking
 - Secure file upload validation
+- Stripe webhook signature verification
+- Payment data never stored locally
 
 ## Contributing
 

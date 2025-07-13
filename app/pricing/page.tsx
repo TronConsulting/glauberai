@@ -1,6 +1,8 @@
 'use client';
 
 import { useState } from 'react';
+import { useSession } from 'next-auth/react';
+
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
@@ -24,6 +26,8 @@ import {
 export default function PricingPage() {
   const [isAnnual, setIsAnnual] = useState(false);
   const [loading, setLoading] = useState<string | null>(null);
+  const { data: session } = useSession();
+  const userEmail = session?.user?.email;
 
   const plans = [
     {
@@ -118,9 +122,7 @@ export default function PricingPage() {
     setLoading(planName);
     
     try {
-      // In a real app, you'd get the user's email from your auth context
-      const userEmail = 'demo@example.com'; // Replace with actual user email
-      
+      // In a real app, you'd get the user's email from your auth context      
       const response = await fetch('/api/stripe/checkout', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

@@ -1,256 +1,191 @@
-# Stripe Payment Integration Setup Guide
+# Stripe Setup Guide for GlauberAI
 
 This guide will help you set up Stripe payments for your GlauberAI application.
 
 ## Prerequisites
 
-1. A Stripe account (sign up at [stripe.com](https://stripe.com))
-2. Node.js and npm installed
-3. Your GlauberAI application running
+1. A Stripe account (sign up at https://stripe.com)
+2. Stripe CLI installed (optional, for automated setup)
 
-## Step 1: Get Your Stripe API Keys
+## Environment Variables
 
-1. Log in to your [Stripe Dashboard](https://dashboard.stripe.com)
-2. Go to **Developers** → **API keys**
-3. Copy your **Publishable key** and **Secret key**
-4. For testing, use the test keys (they start with `pk_test_` and `sk_test_`)
-
-## Step 2: Set Up Environment Variables
-
-1. Copy `env.example` to `.env.local`
-2. Add your Stripe keys:
+Add these to your `.env.local` file:
 
 ```bash
 # Stripe Configuration
-STRIPE_SECRET_KEY=sk_test_your_stripe_secret_key
-NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=pk_test_your_stripe_publishable_key
-STRIPE_WEBHOOK_SECRET=whsec_your_webhook_secret
-NEXT_PUBLIC_APP_URL=http://localhost:3000
+STRIPE_SECRET_KEY=sk_test_...
+STRIPE_PUBLISHABLE_KEY=pk_test_...
+STRIPE_WEBHOOK_SECRET=whsec_...
+
+# Price Lookup Keys (will be created below)
+STRIPE_STARTER_MONTHLY_PRICE=price_starter_monthly
+STRIPE_STARTER_ANNUAL_PRICE=price_starter_annual
+STRIPE_PROFESSIONAL_MONTHLY_PRICE=price_professional_monthly
+STRIPE_PROFESSIONAL_ANNUAL_PRICE=price_professional_annual
+STRIPE_ENTERPRISE_MONTHLY_PRICE=price_enterprise_monthly
+STRIPE_ENTERPRISE_ANNUAL_PRICE=price_enterprise_annual
 ```
 
-## Step 3: Create Products and Prices in Stripe
+## Setup Methods
 
-You need to create products and prices in your Stripe dashboard that match the plans in your application.
+### Method 1: Automated Setup (Recommended)
 
-### Option A: Use Stripe Dashboard
+1. Install Stripe CLI:
+   ```bash
+   # macOS
+   brew install stripe/stripe-cli/stripe
+   
+   # Windows
+   # Download from https://github.com/stripe/stripe-cli/releases
+   
+   # Linux
+   # Download from https://github.com/stripe/stripe-cli/releases
+   ```
 
-1. Go to **Products** in your Stripe Dashboard
-2. Create three products:
-   - **Starter Plan** (Free)
-   - **Professional Plan** ($39/month, $390/year)
-   - **Enterprise Plan** ($299/month, $2990/year)
+2. Login to Stripe:
+   ```bash
+   stripe login
+   ```
 
-3. For each paid product, create two prices:
-   - Monthly recurring price
-   - Annual recurring price
+3. Run the setup script:
+   ```bash
+   node scripts/fix-stripe-prices.js
+   ```
 
-4. **Important**: Set the lookup keys exactly as follows:
-   - `price_starter_monthly` (for Starter monthly - $0)
-   - `price_starter_annual` (for Starter annual - $0)
-   - `price_professional_monthly` (for Professional monthly - $39)
-   - `price_professional_annual` (for Professional annual - $390)
-   - `price_enterprise_monthly` (for Enterprise monthly - $299)
-   - `price_enterprise_annual` (for Enterprise annual - $2990)
+### Method 2: Manual Setup
 
-### Option B: Use Stripe CLI (Recommended)
+If the automated script doesn't work, follow these manual steps:
 
-Install the Stripe CLI and run these commands:
+#### Step 1: Create Products
 
-```bash
-# Install Stripe CLI
-# macOS: brew install stripe/stripe-cli/stripe
-# Windows: Download from https://github.com/stripe/stripe-cli/releases
+1. Go to [Stripe Dashboard > Products](https://dashboard.stripe.com/products)
+2. Click "Add product" and create these products:
 
-# Login to Stripe
-stripe login
+**Starter Plan**
+- Name: `Starter Plan`
+- Description: `Perfect for trying out GlauberAI`
+- Pricing: `$0/month`
 
-# Create products and prices
-stripe products create --name="Starter Plan" --description="Perfect for trying out GlauberAI"
+**Professional Plan**
+- Name: `Professional Plan`
+- Description: `For growing businesses and teams`
+- Pricing: `$39/month`
 
-stripe products create --name="Professional Plan" --description="For growing businesses and teams"
+**Enterprise Plan**
+- Name: `Enterprise Plan`
+- Description: `For large organizations`
+- Pricing: `$299/month`
 
-stripe products create --name="Enterprise Plan" --description="For large organizations"
+#### Step 2: Create Prices with Lookup Keys
 
-# Create prices (replace PRODUCT_ID with actual product IDs from above)
-stripe prices create \
-  --product=prod_xxxxx \
-  --unit-amount=0 \
-  --currency=usd \
-  --recurring-interval=month \
-  --lookup-key=price_starter_monthly
+For each product, create prices with these exact lookup keys:
 
-stripe prices create \
-  --product=prod_xxxxx \
-  --unit-amount=0 \
-  --currency=usd \
-  --recurring-interval=year \
-  --lookup-key=price_starter_annual
+**Starter Plan Prices:**
+- Monthly: `price_starter_monthly` ($0/month)
+- Annual: `price_starter_annual` ($0/year)
 
-stripe prices create \
-  --product=prod_yyyyy \
-  --unit-amount=3900 \
-  --currency=usd \
-  --recurring-interval=month \
-  --lookup-key=price_professional_monthly
+**Professional Plan Prices:**
+- Monthly: `price_professional_monthly` ($39/month)
+- Annual: `price_professional_annual` ($390/year)
 
-stripe prices create \
-  --product=prod_yyyyy \
-  --unit-amount=39000 \
-  --currency=usd \
-  --recurring-interval=year \
-  --lookup-key=price_professional_annual
+**Enterprise Plan Prices:**
+- Monthly: `price_enterprise_monthly` ($299/month)
+- Annual: `price_enterprise_annual` ($2,990/year)
 
-stripe prices create \
-  --product=prod_zzzzz \
-  --unit-amount=29900 \
-  --currency=usd \
-  --recurring-interval=month \
-  --lookup-key=price_enterprise_monthly
+#### Step 3: Set Lookup Keys
 
-stripe prices create \
-  --product=prod_zzzzz \
-  --unit-amount=299000 \
-  --currency=usd \
-  --recurring-interval=year \
-  --lookup-key=price_enterprise_annual
-```
+For each price you created:
 
-## Step 4: Set Up Webhooks
+1. Click on the price in the Stripe dashboard
+2. Scroll down to "Additional options"
+3. In the "Lookup key" field, enter the exact lookup key (e.g., `price_starter_monthly`)
+4. Click "Save"
 
-Webhooks are essential for handling subscription events (payments, cancellations, etc.).
+#### Step 4: Get API Keys
 
-### Option A: Use Stripe CLI (Recommended for Development)
+1. Go to [Stripe Dashboard > Developers > API keys](https://dashboard.stripe.com/apikeys)
+2. Copy your publishable key and secret key
+3. Add them to your `.env.local` file
 
-```bash
-# Forward webhooks to your local development server
-stripe listen --forward-to localhost:3000/api/stripe/webhook
+#### Step 5: Set Up Webhooks
 
-# Copy the webhook signing secret from the output
-# It will look like: whsec_xxxxxxxxxxxxxxxxxxxxx
-# Add this to your .env.local as STRIPE_WEBHOOK_SECRET
-```
-
-### Option B: Use Stripe Dashboard (For Production)
-
-1. Go to **Developers** → **Webhooks** in your Stripe Dashboard
-2. Click **Add endpoint**
+1. Go to [Stripe Dashboard > Developers > Webhooks](https://dashboard.stripe.com/webhooks)
+2. Click "Add endpoint"
 3. Set the endpoint URL to: `https://yourdomain.com/api/stripe/webhook`
 4. Select these events:
+   - `checkout.session.completed`
    - `customer.subscription.created`
    - `customer.subscription.updated`
    - `customer.subscription.deleted`
    - `invoice.payment_succeeded`
    - `invoice.payment_failed`
-   - `customer.subscription.trial_will_end`
-5. Copy the webhook signing secret and add it to your environment variables
+5. Copy the webhook secret and add it to your `.env.local` file
 
-## Step 5: Test the Integration
+## Testing
+
+### Test the Checkout Flow
 
 1. Start your development server:
    ```bash
    npm run dev
    ```
 
-2. Visit your pricing page: `http://localhost:3000/pricing`
+2. Go to the pricing page and click "Get Started" on any plan
+3. You should be redirected to Stripe Checkout
+4. Use Stripe's test card numbers:
+   - Success: `4242 4242 4242 4242`
+   - Decline: `4000 0000 0000 0002`
 
-3. Try subscribing to a plan (use Stripe test card numbers):
-   - **Success**: `4242 4242 4242 4242`
-   - **Decline**: `4000 0000 0000 0002`
-   - **Requires authentication**: `4000 0025 0000 3155`
+### Test Webhooks (Local Development)
 
-4. Check that:
-   - Checkout redirects to Stripe
-   - Payment succeeds/fails as expected
-   - You're redirected back to the billing page
-   - Subscription status is updated
+1. Start the Stripe CLI webhook listener:
+   ```bash
+   stripe listen --forward-to localhost:3000/api/stripe/webhook
+   ```
 
-## Step 6: Database Integration (Optional)
-
-To store subscription data in your database, you'll need to:
-
-1. Create a `subscriptions` table in your database
-2. Update the webhook handlers in `/api/stripe/webhook/route.ts`
-3. Create database functions to update subscription status
-
-Example Prisma schema:
-
-```prisma
-model Subscription {
-  id                String   @id @default(cuid())
-  stripeCustomerId  String   @unique
-  stripePriceId     String
-  stripeSubscriptionId String @unique
-  status            String
-  plan              String
-  billingCycle      String
-  currentPeriodEnd  DateTime
-  cancelAtPeriodEnd Boolean  @default(false)
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
-
-  user              User     @relation(fields: [userId], references: [id])
-  userId            String
-}
-
-model User {
-  id            String        @id @default(cuid())
-  email         String        @unique
-  name          String?
-  stripeCustomerId String?    @unique
-  subscriptions Subscription[]
-  createdAt     DateTime      @default(now())
-  updatedAt     DateTime      @updatedAt
-}
-```
-
-## Step 7: Production Deployment
-
-1. **Update environment variables** with production Stripe keys
-2. **Set up production webhooks** in Stripe Dashboard
-3. **Update webhook endpoint URL** to your production domain
-4. **Test with real cards** (small amounts) before going live
-5. **Monitor webhook events** in Stripe Dashboard
+2. Copy the webhook secret from the CLI output and update your `.env.local`
 
 ## Troubleshooting
 
 ### Common Issues
 
-1. **"Price not found" error**
-   - Check that lookup keys match exactly
-   - Verify prices are created in Stripe Dashboard
+**"Price not found" Error**
+- Make sure the lookup keys are exactly as specified
+- Check that the prices are active in Stripe dashboard
+- Verify the environment variables are set correctly
 
-2. **Webhook signature verification failed**
-   - Ensure `STRIPE_WEBHOOK_SECRET` is correct
-   - Check that webhook endpoint URL is accessible
+**Webhook Errors**
+- Ensure the webhook endpoint URL is correct
+- Check that the webhook secret matches
+- Verify the selected events are correct
 
-3. **Checkout session creation fails**
-   - Verify `STRIPE_SECRET_KEY` is correct
-   - Check that all required fields are provided
+**Checkout Not Working**
+- Check browser console for JavaScript errors
+- Verify Stripe publishable key is correct
+- Ensure the price lookup keys exist in Stripe
 
-4. **Customer not found**
-   - Ensure customer is created before creating subscription
-   - Check that email is provided correctly
+### Getting Help
 
-### Testing Tools
+1. Check the [Stripe Documentation](https://stripe.com/docs)
+2. Review the [Stripe API Reference](https://stripe.com/docs/api)
+3. Check the application logs for detailed error messages
 
-- **Stripe CLI**: `stripe logs tail` to see API requests
-- **Stripe Dashboard**: Monitor events and payments
-- **Test Cards**: Use Stripe's test card numbers for safe testing
+## Production Deployment
 
-## Security Best Practices
+When deploying to production:
 
-1. **Never expose secret keys** in client-side code
-2. **Always verify webhook signatures**
-3. **Use HTTPS** in production
-4. **Implement proper error handling**
-5. **Log payment events** for debugging
-6. **Use Stripe's test mode** during development
+1. Switch to live mode in Stripe dashboard
+2. Update environment variables with live keys
+3. Update webhook endpoint URL to your production domain
+4. Test the complete payment flow with real cards
 
-## Support
+## Security Notes
 
-- [Stripe Documentation](https://stripe.com/docs)
-- [Stripe Support](https://support.stripe.com)
-- [Stripe Discord](https://discord.gg/stripe)
+- Never commit your Stripe secret keys to version control
+- Use environment variables for all sensitive configuration
+- Enable webhook signature verification in production
+- Regularly rotate your API keys
+- Monitor your Stripe dashboard for suspicious activity
 
 ## Files Modified/Created
 

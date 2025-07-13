@@ -2,10 +2,18 @@ import { NextRequest, NextResponse } from 'next/server';
 import Stripe from 'stripe';
 
 const STRIPE_SECRET_KEY = process.env.STRIPE_SECRET_KEY || '';
-const stripe = new Stripe(STRIPE_SECRET_KEY, { apiVersion: '2023-10-16' });
+const stripe = STRIPE_SECRET_KEY ? new Stripe(STRIPE_SECRET_KEY, { apiVersion: '2023-10-16' }) : null;
 
 export async function POST(req: NextRequest) {
   try {
+    // Check if Stripe is configured
+    if (!stripe) {
+      return NextResponse.json({ 
+        error: 'Stripe is not configured. Please set STRIPE_SECRET_KEY in your environment variables.',
+        demo: true
+      }, { status: 503 });
+    }
+
     const { customerId, sessionId } = await req.json();
     
     if (!customerId && !sessionId) {
@@ -34,7 +42,8 @@ export async function POST(req: NextRequest) {
   } catch (error) {
     console.error('Stripe Portal error:', error);
     return NextResponse.json({ 
-      error: 'Failed to create billing portal session' 
+      error: 'Failed to create billing portal session',
+      details: error instanceof Error ? error.message : 'Unknown error'
     }, { status: 500 });
   }
 } 

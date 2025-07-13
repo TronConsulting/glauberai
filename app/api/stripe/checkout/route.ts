@@ -2,7 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import Stripe from 'stripe';
 
 const STRIPE_SECRET_KEY = process.env.STRIPE_SECRET_KEY || '';
-const stripe = new Stripe(STRIPE_SECRET_KEY, { apiVersion: '2023-10-16' });
+
+// Only initialize Stripe if we have a secret key
+const stripe = STRIPE_SECRET_KEY ? new Stripe(STRIPE_SECRET_KEY, { apiVersion: '2023-10-16' }) : null;
 
 // Define price lookup keys for different plans
 const PRICE_LOOKUP_KEYS = {
@@ -22,6 +24,14 @@ const PRICE_LOOKUP_KEYS = {
 
 export async function POST(req: NextRequest) {
   try {
+    // Check if Stripe is configured
+    if (!stripe) {
+      return NextResponse.json({ 
+        error: 'Stripe is not configured. Please set STRIPE_SECRET_KEY in your environment variables.',
+        demo: true
+      }, { status: 503 });
+    }
+
     const { plan, billingCycle, email, customerId } = await req.json();
     
     if (!plan || !billingCycle || !email) {
@@ -46,7 +56,10 @@ export async function POST(req: NextRequest) {
 
     if (!prices.data.length) {
       return NextResponse.json({ 
-        error: 'Price not found for the selected plan' 
+        error: `Price not found for lookup key: ${lookupKey}. Please create this price in your Stripe dashboard.`,
+        lookupKey,
+        plan,
+        billingCycle
       }, { status: 404 });
     }
 
@@ -98,8 +111,26 @@ export async function POST(req: NextRequest) {
     });
   } catch (error) {
     console.error('Stripe Checkout error:', error);
+    
+    // Provide more specific error messages
+    if (error instanceof Error) {
+      if (error.message.includes('No such price')) {
+        return NextResponse.json({ 
+          error: 'Price not found. Please create the required prices in your Stripe dashboard.',
+          details: error.message
+        }, { status: 404 });
+      }
+      if (error.message.includes('Invalid API key')) {
+        return NextResponse.json({ 
+          error: 'Invalid Stripe API key. Please check your STRIPE_SECRET_KEY environment variable.',
+          details: error.message
+        }, { status: 401 });
+      }
+    }
+    
     return NextResponse.json({ 
-      error: 'Failed to create checkout session' 
+      error: 'Failed to create checkout session',
+      details: error instanceof Error ? error.message : 'Unknown error'
     }, { status: 500 });
   }
 } 

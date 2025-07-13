@@ -2,10 +2,18 @@ import { NextRequest, NextResponse } from 'next/server';
 import Stripe from 'stripe';
 
 const STRIPE_SECRET_KEY = process.env.STRIPE_SECRET_KEY || '';
-const stripe = new Stripe(STRIPE_SECRET_KEY, { apiVersion: '2023-10-16' });
+const stripe = STRIPE_SECRET_KEY ? new Stripe(STRIPE_SECRET_KEY, { apiVersion: '2023-10-16' }) : null;
 
 export async function GET(req: NextRequest) {
   try {
+    // Check if Stripe is configured
+    if (!stripe) {
+      return NextResponse.json({ 
+        error: 'Stripe is not configured. Please set STRIPE_SECRET_KEY in your environment variables.',
+        demo: true
+      }, { status: 503 });
+    }
+
     const { searchParams } = new URL(req.url);
     const customerId = searchParams.get('customerId');
     const email = searchParams.get('email');
@@ -53,13 +61,22 @@ export async function GET(req: NextRequest) {
   } catch (error) {
     console.error('Stripe Customer error:', error);
     return NextResponse.json({ 
-      error: 'Failed to retrieve customer information' 
+      error: 'Failed to retrieve customer information',
+      details: error instanceof Error ? error.message : 'Unknown error'
     }, { status: 500 });
   }
 }
 
 export async function POST(req: NextRequest) {
   try {
+    // Check if Stripe is configured
+    if (!stripe) {
+      return NextResponse.json({ 
+        error: 'Stripe is not configured. Please set STRIPE_SECRET_KEY in your environment variables.',
+        demo: true
+      }, { status: 503 });
+    }
+
     const { email, name, metadata } = await req.json();
     
     if (!email) {
@@ -78,7 +95,8 @@ export async function POST(req: NextRequest) {
   } catch (error) {
     console.error('Stripe Customer creation error:', error);
     return NextResponse.json({ 
-      error: 'Failed to create customer' 
+      error: 'Failed to create customer',
+      details: error instanceof Error ? error.message : 'Unknown error'
     }, { status: 500 });
   }
 } 

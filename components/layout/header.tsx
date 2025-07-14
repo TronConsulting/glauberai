@@ -11,38 +11,13 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Moon, Sun, Bell, Settings, User, LogOut } from 'lucide-react';
 import Image from 'next/image';
-import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { useAuth } from '@/hooks/use-auth';
 
 export function Header() {
   const { setTheme } = useTheme();
   const router = useRouter();
-  const [user, setUser] = useState<any>(null);
-
-  useEffect(() => {
-    async function fetchUser() {
-      try {
-        const res = await fetch('/api/auth/me');
-        if (res.ok) {
-          const { user } = await res.json();
-          setUser(user);
-        }
-      } catch (error) {
-        console.error('Error fetching user:', error);
-      }
-    }
-    fetchUser();
-  }, []);
-
-  const signOut = async () => {
-    try {
-      await fetch('/api/auth/signout', { method: 'POST' });
-      setUser(null);
-      router.push('/');
-    } catch (error) {
-      console.error('Error signing out:', error);
-    }
-  };
+  const { user, loading, signOut } = useAuth();
 
   return (
     <header className="sticky top-0 z-50 w-full border-b border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">

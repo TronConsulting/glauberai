@@ -34,6 +34,7 @@ import {
 import { useTheme } from 'next-themes';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
+import { useAuth } from '@/hooks/use-auth';
 
 interface DashboardLayoutProps {
   children: React.ReactNode;
@@ -44,8 +45,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
   const router = useRouter();
   const { theme, setTheme } = useTheme();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const [user, setUser] = useState<any>(null);
-  const [userLoading, setUserLoading] = useState(true);
+  const { user, loading: userLoading, signOut } = useAuth();
   const [notifications] = useState([
     {
       id: 1,
@@ -83,26 +83,17 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
       href: '/dashboard/api',
       icon: Key,
       current: pathname === '/dashboard/api'
+    },
+    {
+      name: 'Billing',
+      href: '/dashboard/billing',
+      icon: CreditCard,
+      current: pathname === '/dashboard/billing'
     }
   ];
 
-  useEffect(() => {
-    async function fetchUser() {
-      try {
-        const res = await fetch('/api/auth/me');
-        if (res.ok) {
-          const { user } = await res.json();
-          setUser(user);
-        }
-      } finally {
-        setUserLoading(false);
-      }
-    }
-    fetchUser();
-  }, []);
-
   const handleSignOut = async () => {
-    await fetch('/api/auth/signout', { method: 'POST' });
+    await signOut();
     router.push('/');
   };
 
@@ -304,12 +295,6 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
                       <Link href="/dashboard/profile" className="flex items-center space-x-2">
                         <User className="h-4 w-4" />
                         <span>Profile</span>
-                      </Link>
-                    </DropdownMenuItem>
-                    <DropdownMenuItem asChild>
-                      <Link href="/dashboard/billing" className="flex items-center space-x-2">
-                        <CreditCard className="h-4 w-4" />
-                        <span>Billing</span>
                       </Link>
                     </DropdownMenuItem>
                     <DropdownMenuItem asChild>

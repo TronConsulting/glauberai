@@ -13,11 +13,11 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Progress } from "@/components/ui/progress";
 import Image from 'next/image';
+import { useAuth } from '@/hooks/use-auth';
 
 export default function QueryPage() {
   const router = useRouter();
-  const [user, setUser] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
+  const { user, loading } = useAuth();
   const [query, setQuery] = useState("");
   const [files, setFiles] = useState<File[]>([]);
   const [result, setResult] = useState<any>(null);
@@ -27,32 +27,6 @@ export default function QueryPage() {
   const [showUpgradeDialog, setShowUpgradeDialog] = useState(false);
   const [showFileDialog, setShowFileDialog] = useState(false);
   const [dragActive, setDragActive] = useState(false);
-
-  useEffect(() => {
-    async function fetchUser() {
-      try {
-        const res = await fetch('/api/auth/me');
-        if (!res.ok) {
-          router.push('/auth/signin');
-          return;
-        }
-        const { user } = await res.json();
-        setUser(user);
-        
-        // Fetch usage data
-        const usageRes = await fetch('/api/usage');
-        if (usageRes.ok) {
-          const { usage } = await usageRes.json();
-          setUsage(usage);
-        }
-      } catch {
-        router.push('/auth/signin');
-      } finally {
-        setLoading(false);
-      }
-    }
-    fetchUser();
-  }, [router]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

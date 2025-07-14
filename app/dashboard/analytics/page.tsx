@@ -25,6 +25,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Progress } from "@/components/ui/progress";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import Image from 'next/image';
+import { useAuth } from '@/hooks/use-auth';
 
 interface QueryData {
   id: string;
@@ -36,8 +37,7 @@ interface QueryData {
 
 export default function AnalyticsPage() {
   const router = useRouter();
-  const [user, setUser] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
+  const { user, loading } = useAuth();
   const [refreshing, setRefreshing] = useState(false);
   const [usage, setUsage] = useState<any>(null);
   const [recentQueries, setRecentQueries] = useState<QueryData[]>([]);
@@ -45,13 +45,10 @@ export default function AnalyticsPage() {
 
   const fetchData = async () => {
     try {
-      const res = await fetch('/api/auth/me');
-      if (!res.ok) {
+      if (!user) {
         router.push('/auth/signin');
         return;
       }
-      const { user } = await res.json();
-      setUser(user);
       
       // Fetch usage data
       const usageRes = await fetch('/api/usage');
@@ -69,7 +66,6 @@ export default function AnalyticsPage() {
     } catch {
       router.push('/auth/signin');
     } finally {
-      setLoading(false);
       setRefreshing(false);
     }
   };

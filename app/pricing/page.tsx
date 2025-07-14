@@ -20,6 +20,7 @@ import {
   CreditCard,
   Loader2
 } from 'lucide-react';
+import { useAuth } from '@/hooks/use-auth';
 
 interface User {
   id: string;
@@ -30,32 +31,9 @@ interface User {
 }
 
 export default function PricingPage() {
+  const { user, loading: authLoading } = useAuth();
   const [isAnnual, setIsAnnual] = useState(false);
   const [loading, setLoading] = useState<string | null>(null);
-  const [user, setUser] = useState<User | null>(null);
-  const [authLoading, setAuthLoading] = useState(true);
-
-  useEffect(() => {
-    // Get current user
-    const fetchUser = async () => {
-      try {
-        const response = await fetch('/api/auth/me');
-        if (response.ok) {
-          const userData = await response.json();
-          setUser(userData);
-        } else {
-          setUser(null);
-        }
-      } catch (error) {
-        console.error('Error fetching user:', error);
-        setUser(null);
-      } finally {
-        setAuthLoading(false);
-      }
-    };
-    
-    fetchUser();
-  }, []);
 
   const plans = [
     {

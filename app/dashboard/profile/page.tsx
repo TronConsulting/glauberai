@@ -11,11 +11,11 @@ import { Separator } from '@/components/ui/separator';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from '@/hooks/use-toast';
 import { Loader2, Eye, EyeOff } from 'lucide-react';
+import { useAuth } from '@/hooks/use-auth';
 
 export default function ProfilePage() {
   const router = useRouter();
-  const [user, setUser] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
+  const { user, loading, refreshUser } = useAuth();
   const [updating, setUpdating] = useState(false);
   const [showCurrentPassword, setShowCurrentPassword] = useState(false);
   const [showNewPassword, setShowNewPassword] = useState(false);
@@ -29,26 +29,6 @@ export default function ProfilePage() {
     newPassword: '',
     confirmPassword: ''
   });
-
-  useEffect(() => {
-    async function fetchUser() {
-      try {
-        const res = await fetch('/api/auth/me');
-        if (!res.ok) {
-          router.push('/auth/signin');
-          return;
-        }
-        const { user } = await res.json();
-        setUser(user);
-        setProfileForm({ fullName: user.fullName || '' });
-      } catch {
-        router.push('/auth/signin');
-      } finally {
-        setLoading(false);
-      }
-    }
-    fetchUser();
-  }, [router]);
 
   const handleProfileUpdate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -68,7 +48,7 @@ export default function ProfilePage() {
         return;
       }
       
-      setUser(data.user);
+      refreshUser();
       toast({ title: 'Success', description: 'Profile updated successfully' });
     } catch (error) {
       toast({ title: 'Error', description: 'Failed to update profile', variant: 'destructive' });

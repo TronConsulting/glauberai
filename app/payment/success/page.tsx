@@ -14,11 +14,13 @@ import {
   Zap
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { useAuth } from '@/hooks/use-auth';
 
 export default function PaymentSuccessPage() {
   const searchParams = useSearchParams();
   const [loading, setLoading] = useState(true);
   const [subscription, setSubscription] = useState<any>(null);
+  const { refreshUser } = useAuth();
 
   useEffect(() => {
     const sessionId = searchParams.get('session_id');
@@ -41,6 +43,10 @@ export default function PaymentSuccessPage() {
 
     toast.success('Payment successful! Your subscription is now active.');
   }, [searchParams]);
+
+  useEffect(() => {
+    refreshUser();
+  }, [refreshUser]);
 
   if (loading) {
     return (

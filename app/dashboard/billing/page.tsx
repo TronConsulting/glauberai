@@ -16,6 +16,7 @@ import {
   Clock,
   Loader2
 } from 'lucide-react';
+import { useAuth } from '@/hooks/use-auth';
 
 interface User {
   id: string;
@@ -48,43 +49,33 @@ interface BillingRecord {
 }
 
 export default function BillingPage() {
-  const [user, setUser] = useState<User | null>(null);
+  const { user, loading } = useAuth();
   const [subscription, setSubscription] = useState<Subscription | null>(null);
   const [billingHistory, setBillingHistory] = useState<BillingRecord[]>([]);
-  const [loading, setLoading] = useState(true);
   const [portalLoading, setPortalLoading] = useState(false);
 
   useEffect(() => {
-    fetchUserData();
+    fetchSubscriptionData();
   }, []);
 
-  const fetchUserData = async () => {
+  const fetchSubscriptionData = async () => {
     try {
-      // Fetch user data
-      const userResponse = await fetch('/api/auth/me');
-      if (userResponse.ok) {
-        const userData = await userResponse.json();
-        setUser(userData);
-        
-        // Fetch subscription data
-        const subscriptionResponse = await fetch('/api/billing/subscription');
-        if (subscriptionResponse.ok) {
-          const subscriptionData = await subscriptionResponse.json();
-          setSubscription(subscriptionData);
-        }
-        
-        // Fetch billing history
-        const historyResponse = await fetch('/api/billing/history');
-        if (historyResponse.ok) {
-          const historyData = await historyResponse.json();
-          setBillingHistory(historyData);
-        }
+      // Fetch subscription data
+      const subscriptionResponse = await fetch('/api/billing/subscription');
+      if (subscriptionResponse.ok) {
+        const subscriptionData = await subscriptionResponse.json();
+        setSubscription(subscriptionData);
+      }
+      
+      // Fetch billing history
+      const historyResponse = await fetch('/api/billing/history');
+      if (historyResponse.ok) {
+        const historyData = await historyResponse.json();
+        setBillingHistory(historyData);
       }
     } catch (error) {
-      console.error('Error fetching user data:', error);
-      toast.error('Failed to load billing information');
-    } finally {
-      setLoading(false);
+      console.error('Error fetching subscription data:', error);
+      toast.error('Failed to load subscription information');
     }
   };
 
@@ -192,7 +183,7 @@ export default function BillingPage() {
                   <div>
                     <h3 className="font-semibold text-lg capitalize">{user?.plan?.toLowerCase()} Plan</h3>
                     <p className="text-muted-foreground">
-                      {user?.plan === 'STARTER' ? 'Free tier' : 'Paid subscription'}
+                      {user?.plan === 'STARTER' ? 'Free tier' : user?.plan === 'PROFESSIONAL' ? 'Professional plan (paid)' : user?.plan === 'ENTERPRISE' ? 'Enterprise plan (paid)' : 'Paid subscription'}
                     </p>
                   </div>
                   {user?.plan !== 'STARTER' && (
@@ -230,6 +221,27 @@ export default function BillingPage() {
                 )}
               </CardContent>
             </Card>
+
+            {/* Upgrade Plan for Free Users */}
+            {user?.plan === 'STARTER' && (
+              <Card>
+                <CardHeader>
+                  <CardTitle>Upgrade Your Plan</CardTitle>
+                  <CardDescription>
+                    Unlock more features and higher usage limits by upgrading your plan.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <Button
+                    variant="default"
+                    size="lg"
+                    onClick={() => window.location.href = '/pricing'}
+                  >
+                    View Plans & Upgrade
+                  </Button>
+                </CardContent>
+              </Card>
+            )}
 
             {/* Billing History */}
             <Card>

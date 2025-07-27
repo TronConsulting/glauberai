@@ -5,8 +5,6 @@ import { ThemeProvider } from '@/components/theme-provider';
 import { Toaster } from '@/components/ui/toaster';
 import { AuthProvider } from '@/hooks/use-auth';
 import ScrollRestoration from './scroll-restoration';
-import { PerformanceMonitor } from '@/components/ui/performance-monitor';
-import { CrispBackground } from '@/components/ui/crisp-background';
 
 const inter = Inter({ 
   subsets: ['latin'],
@@ -80,19 +78,7 @@ export default function RootLayout({
             disableTransitionOnChange
           >
             <ScrollRestoration />
-            {/* Performance Monitor - Development Only */}
-            {process.env.NODE_ENV === 'development' && (
-              <PerformanceMonitor />
-            )}
-            
-            {/* Crisp Background */}
-            <CrispBackground />
-            
-            {/* Optional overlay for better text readability */}
-            <div className="fixed inset-0 bg-black/20 z-[-9]" />
-            
-            {/* Content wrapper */}
-            <div className="relative min-h-screen">
+            <div className="min-h-screen bg-background bg-pattern">
               {children}
             </div>
             <Toaster />

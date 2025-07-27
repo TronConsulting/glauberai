@@ -17,7 +17,6 @@ import {
   Loader2
 } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
-import { DashboardLayout } from '@/components/layout/dashboard-layout';
 
 interface User {
   id: string;
@@ -142,137 +141,149 @@ export default function BillingPage() {
 
   if (loading) {
     return (
-      <DashboardLayout>
-        <div className="min-h-screen flex items-center justify-center">
-          <Loader2 className="h-8 w-8 animate-spin" />
-        </div>
-      </DashboardLayout>
+      <div className="min-h-screen bg-background">
+        <Header />
+        <main className="py-24">
+          <div className="container">
+            <div className="flex items-center justify-center">
+              <Loader2 className="h-8 w-8 animate-spin" />
+            </div>
+          </div>
+        </main>
+        <Footer />
+      </div>
     );
   }
 
   return (
-    <DashboardLayout>
-      <div className="container py-12">
-        <div className="space-y-8">
-          {/* Header */}
-          <div className="space-y-4">
-            <h1 className="text-4xl font-bold">Billing & Subscription</h1>
-            <p className="text-muted-foreground">
-              Manage your subscription and view billing history
-            </p>
-          </div>
+    <div className="min-h-screen bg-background">
+      <Header />
+      
+      <main className="py-24">
+        <div className="container">
+          <div className="space-y-8">
+            {/* Header */}
+            <div className="space-y-4">
+              <h1 className="text-4xl font-bold">Billing & Subscription</h1>
+              <p className="text-muted-foreground">
+                Manage your subscription and view billing history
+              </p>
+            </div>
 
-          {/* Current Plan */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <CreditCard className="h-5 w-5" />
-                Current Plan
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h3 className="font-semibold text-lg capitalize">{user?.plan?.toLowerCase()} Plan</h3>
-                  <p className="text-muted-foreground">
-                    {user?.plan === 'STARTER' ? 'Free tier' : user?.plan === 'PROFESSIONAL' ? 'Professional plan (paid)' : user?.plan === 'ENTERPRISE' ? 'Enterprise plan (paid)' : 'Paid subscription'}
-                  </p>
-                </div>
-                {user?.plan !== 'STARTER' && (
-                  <Button 
-                    onClick={openBillingPortal}
-                    disabled={portalLoading || !user?.stripeCustomerId}
-                  >
-                    {portalLoading ? (
-                      <>
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        Loading...
-                      </>
-                    ) : (
-                      'Manage Subscription'
-                    )}
-                  </Button>
-                )}
-              </div>
-
-              {subscription && (
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-4 border-t">
-                  <div className="space-y-2">
-                    <p className="text-sm text-muted-foreground">Status</p>
-                    {getStatusBadge(subscription.status)}
-                  </div>
-                  <div className="space-y-2">
-                    <p className="text-sm text-muted-foreground">Billing Cycle</p>
-                    <p className="font-medium capitalize">{subscription.billingCycle}</p>
-                  </div>
-                  <div className="space-y-2">
-                    <p className="text-sm text-muted-foreground">Next Billing</p>
-                    <p className="font-medium">{formatDate(subscription.currentPeriodEnd)}</p>
-                  </div>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Upgrade Plan for Free Users */}
-          {user?.plan === 'STARTER' && (
+            {/* Current Plan */}
             <Card>
               <CardHeader>
-                <CardTitle>Upgrade Your Plan</CardTitle>
+                <CardTitle className="flex items-center gap-2">
+                  <CreditCard className="h-5 w-5" />
+                  Current Plan
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="font-semibold text-lg capitalize">{user?.plan?.toLowerCase()} Plan</h3>
+                    <p className="text-muted-foreground">
+                      {user?.plan === 'STARTER' ? 'Free tier' : user?.plan === 'PROFESSIONAL' ? 'Professional plan (paid)' : user?.plan === 'ENTERPRISE' ? 'Enterprise plan (paid)' : 'Paid subscription'}
+                    </p>
+                  </div>
+                  {user?.plan !== 'STARTER' && (
+                    <Button 
+                      onClick={openBillingPortal}
+                      disabled={portalLoading || !user?.stripeCustomerId}
+                    >
+                      {portalLoading ? (
+                        <>
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          Loading...
+                        </>
+                      ) : (
+                        'Manage Subscription'
+                      )}
+                    </Button>
+                  )}
+                </div>
+
+                {subscription && (
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-4 border-t">
+                    <div className="space-y-2">
+                      <p className="text-sm text-muted-foreground">Status</p>
+                      {getStatusBadge(subscription.status)}
+                    </div>
+                    <div className="space-y-2">
+                      <p className="text-sm text-muted-foreground">Billing Cycle</p>
+                      <p className="font-medium capitalize">{subscription.billingCycle}</p>
+                    </div>
+                    <div className="space-y-2">
+                      <p className="text-sm text-muted-foreground">Next Billing</p>
+                      <p className="font-medium">{formatDate(subscription.currentPeriodEnd)}</p>
+                    </div>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Upgrade Plan for Free Users */}
+            {user?.plan === 'STARTER' && (
+              <Card>
+                <CardHeader>
+                  <CardTitle>Upgrade Your Plan</CardTitle>
+                  <CardDescription>
+                    Unlock more features and higher usage limits by upgrading your plan.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <Button
+                    variant="default"
+                    size="lg"
+                    onClick={() => window.location.href = '/pricing'}
+                  >
+                    View Plans & Upgrade
+                  </Button>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Billing History */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <DollarSign className="h-5 w-5" />
+                  Billing History
+                </CardTitle>
                 <CardDescription>
-                  Unlock more features and higher usage limits by upgrading your plan.
+                  Your recent billing transactions
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <Button
-                  variant="default"
-                  size="lg"
-                  onClick={() => window.location.href = '/pricing'}
-                >
-                  View Plans & Upgrade
-                </Button>
+                {billingHistory.length === 0 ? (
+                  <div className="text-center py-8">
+                    <p className="text-muted-foreground">No billing history available</p>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {billingHistory.map((record) => (
+                      <div key={record.id} className="flex items-center justify-between p-4 border rounded-lg">
+                        <div className="space-y-1">
+                          <p className="font-medium capitalize">{record.plan.toLowerCase()} Plan</p>
+                          <p className="text-sm text-muted-foreground">
+                            {formatDate(record.startDate)} - {formatDate(record.endDate)}
+                          </p>
+                        </div>
+                        <div className="text-right space-y-1">
+                          <p className="font-medium">{formatCurrency(record.amount)}</p>
+                          {getStatusBadge(record.status)}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </CardContent>
             </Card>
-          )}
-
-          {/* Billing History */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <DollarSign className="h-5 w-5" />
-                Billing History
-              </CardTitle>
-              <CardDescription>
-                Your recent billing transactions
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              {billingHistory.length === 0 ? (
-                <div className="text-center py-8">
-                  <p className="text-muted-foreground">No billing history available</p>
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  {billingHistory.map((record) => (
-                    <div key={record.id} className="flex items-center justify-between p-4 border rounded-lg">
-                      <div className="space-y-1">
-                        <p className="font-medium capitalize">{record.plan.toLowerCase()} Plan</p>
-                        <p className="text-sm text-muted-foreground">
-                          {formatDate(record.startDate)} - {formatDate(record.endDate)}
-                        </p>
-                      </div>
-                      <div className="text-right space-y-1">
-                        <p className="font-medium">{formatCurrency(record.amount)}</p>
-                        {getStatusBadge(record.status)}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </CardContent>
-          </Card>
+          </div>
         </div>
-      </div>
-    </DashboardLayout>
+      </main>
+
+      <Footer />
+    </div>
   );
 } 

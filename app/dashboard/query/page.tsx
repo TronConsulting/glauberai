@@ -242,7 +242,7 @@ export default function QueryPage() {
                   <Button 
                     variant="outline" 
                     size="sm"
-                    onClick={() => router.push('/dashboard/billing')}
+                    onClick={() => router.push('/dashboard?tab=billing')}
                     className="border-primary text-primary hover:bg-primary hover:text-white"
                   >
                     Upgrade Plan
@@ -278,10 +278,10 @@ export default function QueryPage() {
                       <p className="text-sm text-blue-700 dark:text-blue-300 mt-1">
                         You're approaching your limit. Upgrade to Professional for 1,000,000 tokens/month and advanced features.
                       </p>
-                      <Button 
+                        <Button 
                         size="sm" 
                         className="mt-2 bg-blue-600 hover:bg-blue-700 text-white"
-                        onClick={() => router.push('/dashboard/billing')}
+                        onClick={() => router.push('/dashboard?tab=billing')}
                       >
                         Upgrade Now
                       </Button>
@@ -302,7 +302,7 @@ export default function QueryPage() {
                       <Button 
                         size="sm" 
                         className="mt-2 bg-purple-600 hover:bg-purple-700 text-white"
-                        onClick={() => router.push('/dashboard/billing')}
+                        onClick={() => router.push('/dashboard?tab=billing')}
                       >
                         Contact Sales
                       </Button>

@@ -117,11 +117,14 @@ export function Header() {
                       Settings
                     </Link>
                   </DropdownMenuItem>
-                  <DropdownMenuItem asChild>
-                    <Link href="/dashboard/billing" className="flex items-center">
+                  <DropdownMenuItem>
+                    <button
+                      onClick={() => router.push('/dashboard?tab=billing')}
+                      className="flex items-center w-full text-left"
+                    >
                       <Settings className="h-4 w-4 mr-2" />
                       Billing
-                    </Link>
+                    </button>
                   </DropdownMenuItem>
                   <DropdownMenuItem asChild>
                     <Link href="/dashboard/support" className="flex items-center">

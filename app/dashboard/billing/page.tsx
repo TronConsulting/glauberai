@@ -1,289 +1,165 @@
-'use client';
+"use client";
 
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
+import { DashboardLayout } from '@/components/layout/dashboard-layout';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Header } from '@/components/layout/header';
-import { Footer } from '@/components/layout/footer';
-import { toast } from 'sonner';
-import { 
-  CreditCard, 
-  Calendar, 
-  DollarSign, 
-  CheckCircle, 
-  XCircle,
-  Clock,
-  Loader2
-} from 'lucide-react';
+import Image from 'next/image';
 import { useAuth } from '@/hooks/use-auth';
+import { formatDate, getStatusBadge } from '@/lib/stripe';
 
-interface User {
+interface StripeSubscription {
   id: string;
-  email: string;
-  fullName?: string;
-  plan: 'STARTER' | 'PROFESSIONAL' | 'ENTERPRISE';
-  stripeCustomerId?: string;
-}
-
-interface Subscription {
-  id: string;
-  stripeSubscriptionId: string;
-  plan: 'STARTER' | 'PROFESSIONAL' | 'ENTERPRISE';
   status: string;
-  billingCycle: string;
-  currentPeriodStart: string;
-  currentPeriodEnd: string;
-  cancelAtPeriodEnd: boolean;
-}
-
-interface BillingRecord {
-  id: string;
-  plan: 'STARTER' | 'PROFESSIONAL' | 'ENTERPRISE';
-  amount: number;
-  status: string;
-  period: string;
-  startDate: string;
-  endDate: string;
-  createdAt: string;
+  current_period_start?: number;
+  current_period_end?: number;
+  cancel_at_period_end?: boolean;
+  price?: {
+    product?: string;
+    lookup_key?: string;
+    nickname?: string;
+  };
 }
 
 export default function BillingPage() {
   const { user, loading } = useAuth();
-  const [subscription, setSubscription] = useState<Subscription | null>(null);
-  const [billingHistory, setBillingHistory] = useState<BillingRecord[]>([]);
-  const [portalLoading, setPortalLoading] = useState(false);
+  const [customer, setCustomer] = useState<any | null>(null);
+  const [subscriptions, setSubscriptions] = useState<StripeSubscription[]>([]);
+  const [loadingData, setLoadingData] = useState(true);
+  const [openingPortal, setOpeningPortal] = useState(false);
+
+  const fetchBilling = async () => {
+    if (!user) return;
+    setLoadingData(true);
+
+    try {
+      const res = await fetch(`/api/stripe/customer?email=${encodeURIComponent(user.email)}`);
+      const data = await res.json();
+      if (res.ok) {
+        setCustomer(data.customer || null);
+        setSubscriptions(data.subscriptions || []);
+      } else {
+        setCustomer(null);
+        setSubscriptions([]);
+      }
+    } catch (err) {
+      setCustomer(null);
+      setSubscriptions([]);
+    } finally {
+      setLoadingData(false);
+    }
+  };
 
   useEffect(() => {
-    fetchSubscriptionData();
-  }, []);
+    if (!loading) fetchBilling();
+  }, [user, loading]);
 
-  const fetchSubscriptionData = async () => {
+  const openPortal = async () => {
+    if (!customer && subscriptions.length === 0 && !user) return;
+    setOpeningPortal(true);
     try {
-      // Fetch subscription data
-      const subscriptionResponse = await fetch('/api/billing/subscription');
-      if (subscriptionResponse.ok) {
-        const subscriptionData = await subscriptionResponse.json();
-        setSubscription(subscriptionData);
-      }
-      
-      // Fetch billing history
-      const historyResponse = await fetch('/api/billing/history');
-      if (historyResponse.ok) {
-        const historyData = await historyResponse.json();
-        setBillingHistory(historyData);
-      }
-    } catch (error) {
-      console.error('Error fetching subscription data:', error);
-      toast.error('Failed to load subscription information');
-    }
-  };
+      const body: any = {};
+      if (customer?.id) body.customerId = customer.id;
+      // fallback to customer id from user if present
+      if (!body.customerId && user?.stripeCustomerId) body.customerId = user.stripeCustomerId;
 
-  const openBillingPortal = async () => {
-    if (!user?.stripeCustomerId) {
-      toast.error('No billing information available');
-      return;
-    }
-
-    setPortalLoading(true);
-    try {
-      const response = await fetch('/api/stripe/portal', {
+      const resp = await fetch('/api/stripe/portal', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ customerId: user.stripeCustomerId })
+        body: JSON.stringify(body)
       });
 
-      const data = await response.json();
-      if (response.ok && data.url) {
+      const data = await resp.json();
+      if (resp.ok && data.url) {
         window.location.href = data.url;
       } else {
-        toast.error(data.error || 'Failed to open billing portal');
+        // open pricing as fallback
+        window.location.href = '/pricing';
       }
-    } catch (error) {
-      console.error('Error opening billing portal:', error);
-      toast.error('Failed to open billing portal');
+    } catch (err) {
+      window.location.href = '/pricing';
     } finally {
-      setPortalLoading(false);
+      setOpeningPortal(false);
     }
   };
-
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric'
-    });
-  };
-
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD'
-    }).format(amount / 100); // Convert from cents
-  };
-
-  const getStatusBadge = (status: string) => {
-    switch (status.toLowerCase()) {
-      case 'active':
-        return <Badge className="bg-green-500">Active</Badge>;
-      case 'canceled':
-        return <Badge variant="destructive">Canceled</Badge>;
-      case 'past_due':
-        return <Badge className="bg-yellow-500">Past Due</Badge>;
-      case 'paid':
-        return <Badge className="bg-green-500">Paid</Badge>;
-      case 'pending':
-        return <Badge className="bg-yellow-500">Pending</Badge>;
-      default:
-        return <Badge variant="outline">{status}</Badge>;
-    }
-  };
-
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-background">
-        <Header />
-        <main className="py-24">
-          <div className="container">
-            <div className="flex items-center justify-center">
-              <Loader2 className="h-8 w-8 animate-spin" />
-            </div>
-          </div>
-        </main>
-        <Footer />
-      </div>
-    );
-  }
 
   return (
-    <div className="min-h-screen bg-background">
-      <Header />
-      
-      <main className="py-24">
-        <div className="container">
-          <div className="space-y-8">
-            {/* Header */}
-            <div className="space-y-4">
-              <h1 className="text-4xl font-bold">Billing & Subscription</h1>
-              <p className="text-muted-foreground">
-                Manage your subscription and view billing history
-              </p>
+    <DashboardLayout>
+      <div className="max-w-4xl mx-auto space-y-6">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="h-10 w-10 bg-primary/10 rounded-lg flex items-center justify-center">
+              <Image src="/neural.png" alt="Logo" width={28} height={28} className="object-contain" />
             </div>
-
-            {/* Current Plan */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <CreditCard className="h-5 w-5" />
-                  Current Plan
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h3 className="font-semibold text-lg capitalize">{user?.plan?.toLowerCase()} Plan</h3>
-                    <p className="text-muted-foreground">
-                      {user?.plan === 'STARTER' ? 'Free tier' : user?.plan === 'PROFESSIONAL' ? 'Professional plan (paid)' : user?.plan === 'ENTERPRISE' ? 'Enterprise plan (paid)' : 'Paid subscription'}
-                    </p>
-                  </div>
-                  {user?.plan !== 'STARTER' && (
-                    <Button 
-                      onClick={openBillingPortal}
-                      disabled={portalLoading || !user?.stripeCustomerId}
-                    >
-                      {portalLoading ? (
-                        <>
-                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                          Loading...
-                        </>
-                      ) : (
-                        'Manage Subscription'
-                      )}
-                    </Button>
-                  )}
-                </div>
-
-                {subscription && (
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-4 border-t">
-                    <div className="space-y-2">
-                      <p className="text-sm text-muted-foreground">Status</p>
-                      {getStatusBadge(subscription.status)}
-                    </div>
-                    <div className="space-y-2">
-                      <p className="text-sm text-muted-foreground">Billing Cycle</p>
-                      <p className="font-medium capitalize">{subscription.billingCycle}</p>
-                    </div>
-                    <div className="space-y-2">
-                      <p className="text-sm text-muted-foreground">Next Billing</p>
-                      <p className="font-medium">{formatDate(subscription.currentPeriodEnd)}</p>
-                    </div>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-
-            {/* Upgrade Plan for Free Users */}
-            {user?.plan === 'STARTER' && (
-              <Card>
-                <CardHeader>
-                  <CardTitle>Upgrade Your Plan</CardTitle>
-                  <CardDescription>
-                    Unlock more features and higher usage limits by upgrading your plan.
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <Button
-                    variant="default"
-                    size="lg"
-                    onClick={() => window.location.href = '/pricing'}
-                  >
-                    View Plans & Upgrade
-                  </Button>
-                </CardContent>
-              </Card>
-            )}
-
-            {/* Billing History */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <DollarSign className="h-5 w-5" />
-                  Billing History
-                </CardTitle>
-                <CardDescription>
-                  Your recent billing transactions
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                {billingHistory.length === 0 ? (
-                  <div className="text-center py-8">
-                    <p className="text-muted-foreground">No billing history available</p>
-                  </div>
-                ) : (
-                  <div className="space-y-4">
-                    {billingHistory.map((record) => (
-                      <div key={record.id} className="flex items-center justify-between p-4 border rounded-lg">
-                        <div className="space-y-1">
-                          <p className="font-medium capitalize">{record.plan.toLowerCase()} Plan</p>
-                          <p className="text-sm text-muted-foreground">
-                            {formatDate(record.startDate)} - {formatDate(record.endDate)}
-                          </p>
-                        </div>
-                        <div className="text-right space-y-1">
-                          <p className="font-medium">{formatCurrency(record.amount)}</p>
-                          {getStatusBadge(record.status)}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
+            <div>
+              <h1 className="text-2xl font-bold">Billing & Subscription</h1>
+              <p className="text-sm text-muted-foreground">Manage your plan, invoices and payment methods</p>
+            </div>
+          </div>
+          <div>
+            <Badge variant="secondary">{user?.plan || 'Unknown'}</Badge>
           </div>
         </div>
-      </main>
 
-      <Footer />
-    </div>
+        <Card>
+          <CardHeader>
+            <CardTitle>Current Subscription</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {loadingData ? (
+              <div className="text-sm text-muted-foreground">Loading billing information...</div>
+            ) : subscriptions.length === 0 ? (
+              <div className="space-y-4">
+                <div className="text-sm text-muted-foreground">No active subscriptions found.</div>
+                <div className="flex gap-2">
+                  <Button onClick={() => (window.location.href = '/pricing')}>Upgrade plan</Button>
+                  <Button variant="outline" onClick={fetchBilling}>Refresh</Button>
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {subscriptions.map((sub) => {
+                  const badge = getStatusBadge(sub.status || 'unknown');
+                  return (
+                    <div key={sub.id} className="flex items-center justify-between border rounded-lg p-4">
+                      <div>
+                        <div className="flex items-center gap-3">
+                          <div className="font-semibold">{sub.price?.nickname || sub.id}</div>
+                          <div className={`text-xs px-2 py-1 rounded text-white ${badge.className}`}>{badge.label}</div>
+                        </div>
+                        <div className="text-sm text-muted-foreground mt-1">
+                          Period: {sub.current_period_start ? formatDate(sub.current_period_start) : '—'} — {sub.current_period_end ? formatDate(sub.current_period_end) : '—'}
+                        </div>
+                        {sub.cancel_at_period_end && (
+                          <div className="text-xs text-orange-600 mt-1">Subscription will cancel at period end</div>
+                        )}
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        <Button onClick={openPortal} disabled={openingPortal}>{openingPortal ? 'Opening...' : 'Manage in Stripe'}</Button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Payment Methods & Invoices</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-sm text-muted-foreground">Manage cards, billing addresses and view invoice history in the Stripe billing portal.</div>
+            <div className="mt-4 flex gap-2">
+              <Button onClick={openPortal}>{openingPortal ? 'Opening...' : 'Open billing portal'}</Button>
+              <Button variant="outline" onClick={fetchBilling}>Refresh</Button>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    </DashboardLayout>
   );
-} 
+}

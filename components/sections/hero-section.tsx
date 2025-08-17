@@ -19,6 +19,13 @@ import {
 } from 'lucide-react';
 
 export function HeroSection() {
+  // Reasoning for each routing decision
+  const routingReasons = [
+    "Selected Claude 3 based on code-related keywords and programming complexity.",
+    "Selected GPT-4 based on creative writing keywords and medium complexity.",
+    "Selected GPT-4 Turbo for data analysis and report context.",
+    "Selected Gemini Pro for science and explanation-focused query."
+  ];
   const [typedText, setTypedText] = useState('');
   const [currentIndex, setCurrentIndex] = useState(0);
   const [showResponse, setShowResponse] = useState(false);
@@ -35,6 +42,14 @@ export function HeroSection() {
     "In a world where artificial intelligence had become as common as electricity...",
     "Based on the quarterly data analysis, revenue increased by 15% compared to...",
     "Quantum computing uses quantum mechanical phenomena like superposition and entanglement..."
+  ];
+
+  // Add model info for each query type
+  const modelBadges = [
+    { name: "Claude 3", color: "bg-accent/10 text-accent" }, // Code
+    { name: "GPT-4", color: "bg-primary/10 text-primary" }, // Text
+    { name: "GPT-4 Turbo", color: "bg-secondary/10 text-secondary-foreground" }, // Data
+    { name: "Gemini Pro", color: "bg-muted/10 text-foreground" } // Science
   ];
 
   useEffect(() => {
@@ -139,7 +154,7 @@ export function HeroSection() {
                 </p>
               </div>
 
-              {/* Query Input Simulation */}
+              {/* Query Input Simulation + Mode Picker */}
               <div className="space-y-4 md:space-y-6">
                 <div className="flex items-center space-x-3 md:space-x-4 p-3 md:p-4 bg-background/60 rounded-lg border border-border">
                   <div className="flex-shrink-0">
@@ -152,6 +167,29 @@ export function HeroSection() {
                       {typedText}
                       <span className="animate-pulse text-primary">|</span>
                     </div>
+                  </div>
+                </div>
+                {/* Mode Picker Example */}
+                <div className="flex flex-wrap gap-2 justify-center items-center">
+                  {/* Example: Text question */}
+                  <div className="flex items-center gap-2 px-3 py-1 bg-primary/5 rounded border border-primary/20">
+                    <span className="font-mono text-xs text-foreground">Text/Story</span>
+                    <Badge variant="outline" className="text-xs">GPT-4</Badge>
+                  </div>
+                  {/* Example: Code question */}
+                  <div className="flex items-center gap-2 px-3 py-1 bg-accent/5 rounded border border-accent/20">
+                    <span className="font-mono text-xs text-foreground">Code/Programming</span>
+                    <Badge variant="outline" className="text-xs">Claude 3</Badge>
+                  </div>
+                  {/* Example: Data analysis */}
+                  <div className="flex items-center gap-2 px-3 py-1 bg-secondary/5 rounded border border-secondary/20">
+                    <span className="font-mono text-xs text-foreground">Data/Analysis</span>
+                    <Badge variant="outline" className="text-xs">GPT-4 Turbo</Badge>
+                  </div>
+                  {/* Example: Science/Explanation */}
+                  <div className="flex items-center gap-2 px-3 py-1 bg-muted/10 rounded border border-border">
+                    <span className="font-mono text-xs text-foreground">Science/Explain</span>
+                    <Badge variant="outline" className="text-xs">Gemini Pro</Badge>
                   </div>
                 </div>
 
@@ -191,27 +229,33 @@ export function HeroSection() {
                 {/* Response Display */}
                 {showResponse && (
                   <div className="fade-in">
-                    <div className="flex items-start space-x-3 md:space-x-4 p-3 md:p-4 bg-muted/30 rounded-lg border border-border">
-                      <div className="flex-shrink-0">
-                        <div className="w-8 h-8 md:w-10 md:h-10 bg-green-500/10 rounded-lg flex items-center justify-center">
-                          <Sparkles className="w-4 h-4 md:w-5 md:h-5 text-green-500" />
+                    <div className="flex flex-col gap-2">
+                      <div className="flex items-start space-x-3 md:space-x-4 p-3 md:p-4 bg-muted/30 rounded-lg border border-border">
+                        <div className="flex-shrink-0">
+                          <div className="w-8 h-8 md:w-10 md:h-10 bg-green-500/10 rounded-lg flex items-center justify-center">
+                            <Sparkles className="w-4 h-4 md:w-5 md:h-5 text-green-500" />
+                          </div>
+                        </div>
+                        <div className="flex-1">
+                          <div className="text-xs md:text-sm text-foreground leading-relaxed">
+                            {responses[currentIndex]}
+                          </div>
+                          <div className="flex items-center space-x-2 mt-2 flex-wrap">
+                            <Badge variant="outline" className={`text-xs ${modelBadges[currentIndex].color}`}>{modelBadges[currentIndex].name}</Badge>
+                            <Badge variant="outline" className="text-xs">$0.02</Badge>
+                            <Badge variant="outline" className="text-xs">1.2s</Badge>
+                          </div>
                         </div>
                       </div>
-                      <div className="flex-1">
-                        <div className="text-xs md:text-sm text-foreground leading-relaxed">
-                          {responses[currentIndex]}
+                      {/* Routing Decision Reasoning */}
+                      <div className="p-3 md:p-4 bg-background/70 rounded-lg border border-border flex flex-col gap-1">
+                        <div className="font-semibold text-xs md:text-sm text-foreground mb-1">Routing Decision</div>
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="font-mono text-xs text-muted-foreground">Selected Model</span>
+                          <Badge variant="outline" className={`text-xs ${modelBadges[currentIndex].color}`}>{modelBadges[currentIndex].name}</Badge>
+                          <span className="font-mono text-xs text-green-600">Optimal</span>
                         </div>
-                        <div className="flex items-center space-x-2 mt-2 flex-wrap">
-                          <Badge variant="outline" className="text-xs">
-                            GPT-4
-                          </Badge>
-                          <Badge variant="outline" className="text-xs">
-                            $0.02
-                          </Badge>
-                          <Badge variant="outline" className="text-xs">
-                            1.2s
-                          </Badge>
-                        </div>
+                        <div className="text-xs md:text-sm text-muted-foreground">Reasoning: {routingReasons[currentIndex]}</div>
                       </div>
                     </div>
                   </div>

@@ -87,7 +87,7 @@ export default function BillingPage() {
 
     setPortalLoading(true);
     try {
-      const response = await fetch('/api/stripe/billing-portal', {
+      const response = await fetch('/api/stripe/portal', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ customerId: user.stripeCustomerId })

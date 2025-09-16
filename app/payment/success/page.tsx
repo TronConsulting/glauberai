@@ -146,10 +146,8 @@ export default function PaymentSuccessPage() {
                 <ArrowRight className="ml-2 h-4 w-4" />
               </Link>
             </Button>
-            <Button variant="outline" asChild size="lg">
-              <Link href="/dashboard/billing">
-                Manage Billing
-              </Link>
+            <Button variant="outline" size="lg" onClick={() => window.location.href = '/dashboard?tab=billing'}>
+              Manage Billing
             </Button>
           </div>
 

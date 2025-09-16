@@ -26,10 +26,10 @@ export default function DemoPage() {
   const [result, setResult] = useState<any>(null);
 
   const demoQueries = [
-    "Write a Python function to calculate fibonacci numbers",
-    "Explain quantum computing in simple terms",
-    "Create a marketing email for a new AI product",
-    "Analyze the pros and cons of remote work"
+    "Generate a Python function to sort a list",
+    "Write a creative story about AI",
+    "Analyze this quarterly report data",
+    "Explain quantum computing simply"
   ];
 
   const models = [
@@ -40,20 +40,32 @@ export default function DemoPage() {
     { id: 'gemini-pro', name: 'Gemini Pro', description: 'Multimodal capabilities' }
   ];
 
+  // Models and routing logic from hero-section
+  const heroModels = [
+    { id: 'claude-3-sonnet', name: 'Claude 3 Sonnet', reasoning: 'Selected Claude 3 Sonnet based on code-related keywords and programming complexity.' },
+    { id: 'gpt-4', name: 'GPT-4', reasoning: 'Selected GPT-4 based on creative writing keywords and medium complexity.' },
+    { id: 'gpt-4-turbo', name: 'GPT-4 Turbo', reasoning: 'Selected GPT-4 Turbo for data analysis and report context.' },
+    { id: 'gemini-pro', name: 'Gemini Pro', reasoning: 'Selected Gemini Pro for science and explanation-focused query.' }
+  ];
+
   const handleDemo = async () => {
     if (!query.trim()) return;
-    
     setIsLoading(true);
-    
-    // Simulate API call with realistic delay
     await new Promise(resolve => setTimeout(resolve, 2000));
-    
-    // Mock response based on query type
+
+    // Find which demo query is selected
+    const queryIndex = demoQueries.findIndex(q => q === query);
+    let selectedIdx = queryIndex !== -1 ? queryIndex : 0;
+
+    let selectedModelId = selectedModel === 'auto' ? heroModels[selectedIdx].id : selectedModel;
+    let selectedModelObj = models.find(m => m.id === selectedModelId) || heroModels[selectedIdx];
+    let reasoning = selectedModel === 'auto'
+      ? heroModels[selectedIdx].reasoning
+      : 'User-specified model selection';
+
     const mockResult = {
-      selectedModel: selectedModel === 'auto' ? 'claude-3-sonnet' : selectedModel,
-      reasoning: selectedModel === 'auto' 
-        ? 'Selected Claude 3 Sonnet based on creative writing keywords and medium complexity'
-        : 'User-specified model selection',
+      selectedModel: selectedModelId,
+      reasoning,
       response: generateMockResponse(query),
       metrics: {
         processingTime: Math.random() * 200 + 50,
@@ -62,7 +74,6 @@ export default function DemoPage() {
         estimatedCost: (Math.random() * 0.01 + 0.001).toFixed(4)
       }
     };
-    
     setResult(mockResult);
     setIsLoading(false);
   };
@@ -233,11 +244,11 @@ This ensures you get the best possible response while optimizing for both qualit
                     </CardHeader>
                     <CardContent className="space-y-4">
                       <div className="flex items-center justify-between p-3 bg-primary/10 rounded-lg">
-                        <div>
+                        <div className="flex items-center gap-2">
                           <div className="font-medium">Selected Model</div>
-                          <div className="text-sm text-muted-foreground">
-                            {models.find(m => m.id === result.selectedModel)?.name}
-                          </div>
+                          <Badge variant="outline" className="text-xs">
+                            {models.find(m => m.id === result.selectedModel)?.name || result.selectedModel}
+                          </Badge>
                         </div>
                         <Badge variant="secondary">Optimal</Badge>
                       </div>

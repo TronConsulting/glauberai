@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { 
@@ -42,6 +42,8 @@ interface DashboardLayoutProps {
 
 export function DashboardLayout({ children }: DashboardLayoutProps) {
   const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const tabParam = searchParams?.get('tab') || undefined;
   const router = useRouter();
   const { theme, setTheme } = useTheme();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -68,27 +70,31 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
   const navigation = [
     {
       name: 'Query Interface',
-      href: '/dashboard/query',
+      href: '/dashboard?tab=query',
+      key: 'query',
       icon: MessageSquare,
-      current: pathname === '/dashboard/query'
+      current: tabParam === 'query' || pathname === '/dashboard/query'
     },
     {
       name: 'Analytics',
-      href: '/dashboard/analytics',
+      href: '/dashboard?tab=analytics',
+      key: 'analytics',
       icon: BarChart3,
-      current: pathname === '/dashboard/analytics'
+      current: tabParam === 'analytics' || pathname === '/dashboard/analytics'
     },
     {
       name: 'API Keys',
-      href: '/dashboard/api',
+      href: '/dashboard?tab=api',
+      key: 'api',
       icon: Key,
-      current: pathname === '/dashboard/api'
+      current: tabParam === 'api' || pathname === '/dashboard/api'
     },
     {
       name: 'Billing',
-      href: '/dashboard/billing',
+      href: '/dashboard?tab=billing',
+      key: 'billing',
       icon: CreditCard,
-      current: pathname === '/dashboard/billing'
+      current: tabParam === 'billing' || pathname === '/dashboard/billing'
     }
   ];
 
@@ -100,19 +106,21 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
   const NavLinks = () => (
     <nav className="space-y-2">
       {navigation.map((item) => (
-        <Link
+        <button
           key={item.name}
-          href={item.href}
+          onClick={() => {
+            setIsMobileMenuOpen(false);
+            router.push(item.href);
+          }}
           className={`flex items-center space-x-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
             item.current
               ? 'bg-primary text-primary-foreground'
               : 'text-muted-foreground hover:text-foreground hover:bg-accent'
           }`}
-          onClick={() => setIsMobileMenuOpen(false)}
         >
           <item.icon className="h-5 w-5" />
           <span>{item.name}</span>
-        </Link>
+        </button>
       ))}
     </nav>
   );
@@ -122,8 +130,8 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
       {/* Desktop Sidebar */}
       <div className="hidden lg:fixed lg:inset-y-0 lg:z-50 lg:flex lg:w-72 lg:flex-col">
         <div className="flex grow flex-col gap-y-5 overflow-y-auto border-r bg-background px-6 pb-4">
-          <div className="flex h-16 shrink-0 items-center">
-            <Link href="/dashboard/query" className="flex items-center space-x-2">
+      <div className="flex h-16 shrink-0 items-center">
+        <Link href="/dashboard?tab=query" className="flex items-center space-x-2">
               <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10">
                 <Image 
                   src="/neural.png" 
@@ -137,7 +145,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
             </Link>
           </div>
           
-          <NavLinks />
+                <NavLinks />
 
           <div className="mt-auto">
             <div className="rounded-lg border bg-card p-4 space-y-3">

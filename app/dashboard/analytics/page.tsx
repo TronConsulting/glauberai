@@ -7,7 +7,6 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { DashboardLayout } from '@/components/layout/dashboard-layout';
 import { 
   TrendingUp, 
   Zap, 
@@ -193,8 +192,7 @@ export default function AnalyticsPage() {
   const upgradeSuggestions = getUpgradeSuggestions();
 
   return (
-    <DashboardLayout>
-      <div className="max-w-6xl mx-auto py-10 px-4 space-y-8">
+    <div className="max-w-6xl mx-auto py-10 px-4 space-y-8">
         {/* Header */}
         <div className="space-y-4">
           <div className="flex items-center justify-between">
@@ -476,7 +474,6 @@ export default function AnalyticsPage() {
             </div>
           </DialogContent>
         </Dialog>
-      </div>
-    </DashboardLayout>
+    </div>
   );
 } 

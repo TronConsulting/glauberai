@@ -17,7 +17,7 @@ export interface FileData {
 }
 
 export class AIIntegration {
-  private apiKeys: Record<string, string> = {};
+  protected apiKeys: Record<string, string> = {};
 
   constructor() {
     // Load API keys from environment variables
@@ -417,7 +417,7 @@ export class AIIntegration {
     };
   }
 
-  private calculateCost(model: ModelConfig, tokens: number): number {
+  protected calculateCost(model: ModelConfig, tokens: number): number {
     const inputTokens = tokens * 0.7; // Assume 70% input, 30% output
     const outputTokens = tokens * 0.3;
     

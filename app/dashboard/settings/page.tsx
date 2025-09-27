@@ -1,7 +1,6 @@
 'use client';
 
 import { useState } from 'react';
-import { DashboardLayout } from '@/components/layout/dashboard-layout';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -43,8 +42,7 @@ export default function SettingsPage() {
   };
 
   return (
-    <DashboardLayout>
-      <div className="max-w-4xl mx-auto py-10">
+    <div className="max-w-4xl mx-auto py-10 px-4">
         <div className="space-y-6">
           <div>
             <h1 className="text-3xl font-bold">Settings</h1>
@@ -225,7 +223,6 @@ export default function SettingsPage() {
             </TabsContent>
           </Tabs>
         </div>
-      </div>
-    </DashboardLayout>
+    </div>
   );
 } 

@@ -20,7 +20,10 @@ export interface RoutingRule {
 export interface ModelConfig {
   id: string;
   name: string;
-  provider: 'openai' | 'anthropic' | 'google' | 'cohere' | 'mistral' | 'meta' | 'stability' | 'midjourney' | 'dalle';
+  provider: 'openai' | 'anthropic' | 'google' | 'cohere' | 'mistral' | 'meta' | 'stability' | 'midjourney' | 'dalle' | 
+            'huggingface' | 'replicate' | 'together' | 'perplexity' | 'fireworks' | 'groq' | 'anyscale' | 'runpod' |
+            'custom' | 'local' | 'ollama' | 'openrouter' | 'deepinfra' | '01ai' | 'deepseek' | 'xi-ai' | 'moonshot' | 'baichuan' |
+            'zhipu' | 'alibaba' | 'baidu' | 'tencent' | 'bytedance' | 'minimax' | 'sensetime' | 'yandex' | 'ai21';
   modelId: string;
   costPer1kInput: number;
   costPer1kOutput: number;
@@ -29,6 +32,11 @@ export interface ModelConfig {
   supportsImages: boolean;
   supportsVision: boolean;
   supportsAudio: boolean;
+  supportsVideo: boolean;
+  supportsCode: boolean;
+  supportsFunction: boolean;
+  isOpenSource: boolean;
+  requiresGPU: boolean;
   strengths: string[];
   weaknesses: string[];
   bestFor: string[];
@@ -37,6 +45,13 @@ export interface ModelConfig {
   contextWindow: number;
   trainingData: string;
   releaseDate: string;
+  license?: string;
+  modelSize?: string;
+  architecture?: string;
+  languages?: string[];
+  region?: string;
+  customEndpoint?: string;
+  headers?: Record<string, string>;
 }
 
 export const COMPREHENSIVE_MODELS: ModelConfig[] = [
@@ -53,6 +68,11 @@ export const COMPREHENSIVE_MODELS: ModelConfig[] = [
     supportsImages: false,
     supportsVision: true,
     supportsAudio: false,
+    supportsVideo: false,
+    supportsCode: true,
+    supportsFunction: true,
+    isOpenSource: false,
+    requiresGPU: false,
     strengths: ['complex reasoning', 'code generation', 'analysis', 'mathematics', 'creative writing'],
     weaknesses: ['cost', 'speed'],
     bestFor: ['complex problem solving', 'advanced coding', 'detailed analysis'],
@@ -73,6 +93,11 @@ export const COMPREHENSIVE_MODELS: ModelConfig[] = [
     supportsImages: false,
     supportsVision: true,
     supportsAudio: true,
+    supportsVideo: false,
+    supportsCode: true,
+    supportsFunction: true,
+    isOpenSource: false,
+    requiresGPU: false,
     strengths: ['multimodal', 'fast', 'cost-effective', 'reasoning'],
     weaknesses: ['newer model', 'less tested'],
     bestFor: ['general purpose', 'multimodal tasks', 'real-time applications'],
@@ -93,6 +118,11 @@ export const COMPREHENSIVE_MODELS: ModelConfig[] = [
     supportsImages: false,
     supportsVision: false,
     supportsAudio: false,
+    supportsVideo: false,
+    supportsCode: true,
+    supportsFunction: true,
+    isOpenSource: false,
+    requiresGPU: false,
     strengths: ['fast', 'cost-effective', 'general purpose'],
     weaknesses: ['limited reasoning', 'context window'],
     bestFor: ['simple queries', 'chat', 'basic tasks'],
@@ -113,6 +143,11 @@ export const COMPREHENSIVE_MODELS: ModelConfig[] = [
     supportsImages: true,
     supportsVision: false,
     supportsAudio: false,
+    supportsVideo: false,
+    supportsCode: false,
+    supportsFunction: false,
+    isOpenSource: false,
+    requiresGPU: false,
     strengths: ['high quality images', 'text-to-image', 'artistic'],
     weaknesses: ['expensive', 'no vision'],
     bestFor: ['image generation', 'artistic content', 'visual design'],
@@ -135,6 +170,11 @@ export const COMPREHENSIVE_MODELS: ModelConfig[] = [
     supportsImages: false,
     supportsVision: true,
     supportsAudio: false,
+    supportsVideo: false,
+    supportsCode: true,
+    supportsFunction: true,
+    isOpenSource: false,
+    requiresGPU: false,
     strengths: ['reasoning', 'analysis', 'safety', 'long context'],
     weaknesses: ['expensive', 'slower'],
     bestFor: ['complex analysis', 'research', 'safety-critical tasks'],
@@ -155,6 +195,11 @@ export const COMPREHENSIVE_MODELS: ModelConfig[] = [
     supportsImages: false,
     supportsVision: true,
     supportsAudio: false,
+    supportsVideo: false,
+    supportsCode: true,
+    supportsFunction: true,
+    isOpenSource: false,
+    requiresGPU: false,
     strengths: ['balanced performance', 'creative writing', 'analysis'],
     weaknesses: ['moderate cost'],
     bestFor: ['general purpose', 'creative writing', 'analysis'],
@@ -175,6 +220,11 @@ export const COMPREHENSIVE_MODELS: ModelConfig[] = [
     supportsImages: false,
     supportsVision: true,
     supportsAudio: false,
+    supportsVideo: false,
+    supportsCode: true,
+    supportsFunction: true,
+    isOpenSource: false,
+    requiresGPU: false,
     strengths: ['fast', 'cost-effective', 'vision'],
     weaknesses: ['limited reasoning'],
     bestFor: ['simple tasks', 'vision tasks', 'cost-sensitive applications'],
@@ -197,6 +247,11 @@ export const COMPREHENSIVE_MODELS: ModelConfig[] = [
     supportsImages: false,
     supportsVision: false,
     supportsAudio: false,
+    supportsVideo: false,
+    supportsCode: true,
+    supportsFunction: true,
+    isOpenSource: false,
+    requiresGPU: false,
     strengths: ['reasoning', 'code', 'multilingual'],
     weaknesses: ['limited context', 'no vision'],
     bestFor: ['reasoning tasks', 'code generation', 'multilingual content'],
@@ -217,6 +272,11 @@ export const COMPREHENSIVE_MODELS: ModelConfig[] = [
     supportsImages: false,
     supportsVision: true,
     supportsAudio: false,
+    supportsVideo: false,
+    supportsCode: true,
+    supportsFunction: true,
+    isOpenSource: false,
+    requiresGPU: false,
     strengths: ['vision', 'reasoning', 'multilingual'],
     weaknesses: ['limited context'],
     bestFor: ['image analysis', 'visual reasoning', 'multilingual vision tasks'],
@@ -239,6 +299,11 @@ export const COMPREHENSIVE_MODELS: ModelConfig[] = [
     supportsImages: false,
     supportsVision: false,
     supportsAudio: false,
+    supportsVideo: false,
+    supportsCode: true,
+    supportsFunction: true,
+    isOpenSource: false,
+    requiresGPU: false,
     strengths: ['reasoning', 'tool use', 'long context'],
     weaknesses: ['less tested', 'limited vision'],
     bestFor: ['reasoning', 'tool use', 'long documents'],
@@ -259,6 +324,11 @@ export const COMPREHENSIVE_MODELS: ModelConfig[] = [
     supportsImages: false,
     supportsVision: false,
     supportsAudio: false,
+    supportsVideo: false,
+    supportsCode: true,
+    supportsFunction: true,
+    isOpenSource: false,
+    requiresGPU: false,
     strengths: ['fast', 'cost-effective', 'long context'],
     weaknesses: ['limited reasoning'],
     bestFor: ['general purpose', 'long documents', 'cost-sensitive tasks'],
@@ -281,6 +351,11 @@ export const COMPREHENSIVE_MODELS: ModelConfig[] = [
     supportsImages: false,
     supportsVision: false,
     supportsAudio: false,
+    supportsVideo: false,
+    supportsCode: true,
+    supportsFunction: true,
+    isOpenSource: true,
+    requiresGPU: false,
     strengths: ['reasoning', 'multilingual', 'code'],
     weaknesses: ['no vision', 'moderate cost'],
     bestFor: ['reasoning', 'multilingual tasks', 'code generation'],
@@ -301,6 +376,11 @@ export const COMPREHENSIVE_MODELS: ModelConfig[] = [
     supportsImages: false,
     supportsVision: false,
     supportsAudio: false,
+    supportsVideo: false,
+    supportsCode: true,
+    supportsFunction: true,
+    isOpenSource: true,
+    requiresGPU: false,
     strengths: ['balanced performance', 'multilingual'],
     weaknesses: ['no vision'],
     bestFor: ['general purpose', 'multilingual content'],
@@ -323,6 +403,11 @@ export const COMPREHENSIVE_MODELS: ModelConfig[] = [
     supportsImages: true,
     supportsVision: false,
     supportsAudio: false,
+    supportsVideo: false,
+    supportsCode: false,
+    supportsFunction: false,
+    isOpenSource: false,
+    requiresGPU: true,
     strengths: ['artistic quality', 'creative style', 'photorealistic'],
     weaknesses: ['expensive', 'no API access', 'slow'],
     bestFor: ['artistic images', 'creative content', 'high-quality visuals'],
@@ -343,6 +428,11 @@ export const COMPREHENSIVE_MODELS: ModelConfig[] = [
     supportsImages: true,
     supportsVision: false,
     supportsAudio: false,
+    supportsVideo: false,
+    supportsCode: false,
+    supportsFunction: false,
+    isOpenSource: true,
+    requiresGPU: true,
     strengths: ['open source', 'customizable', 'fast'],
     weaknesses: ['lower quality', 'limited control'],
     bestFor: ['rapid prototyping', 'custom models', 'cost-sensitive image generation'],
@@ -350,6 +440,298 @@ export const COMPREHENSIVE_MODELS: ModelConfig[] = [
     contextWindow: 1000,
     trainingData: 'Up to 2023',
     releaseDate: '2023-07-26'
+  },
+
+  // Open Source Models via Together AI
+  {
+    id: 'together-llama-2-70b',
+    name: 'Llama 2 70B (Together)',
+    provider: 'together',
+    modelId: 'meta-llama/Llama-2-70b-chat-hf',
+    costPer1kInput: 0.0009,
+    costPer1kOutput: 0.0009,
+    maxTokens: 4096,
+    supportsStreaming: true,
+    supportsImages: false,
+    supportsVision: false,
+    supportsAudio: false,
+    supportsVideo: false,
+    supportsCode: true,
+    supportsFunction: false,
+    isOpenSource: true,
+    requiresGPU: true,
+    strengths: ['large scale', 'open source', 'strong reasoning', 'fast inference'],
+    weaknesses: ['higher cost', 'limited context'],
+    bestFor: ['complex reasoning', 'code generation', 'long conversations'],
+    apiUrl: 'https://api.together.xyz/v1',
+    contextWindow: 4096,
+    trainingData: 'Up to 2023',
+    releaseDate: '2023-07-18',
+    license: 'Custom License',
+    architecture: 'Transformer',
+    modelSize: '70B parameters'
+  },
+  {
+    id: 'together-mixtral-8x7b',
+    name: 'Mixtral 8x7B (Together)',
+    provider: 'together',
+    modelId: 'mistralai/Mixtral-8x7B-Instruct-v0.1',
+    costPer1kInput: 0.0006,
+    costPer1kOutput: 0.0006,
+    maxTokens: 32768,
+    supportsStreaming: true,
+    supportsImages: false,
+    supportsVision: false,
+    supportsAudio: false,
+    supportsVideo: false,
+    supportsCode: true,
+    supportsFunction: false,
+    isOpenSource: true,
+    requiresGPU: true,
+    strengths: ['long context', 'mixture of experts', 'multilingual', 'efficient'],
+    weaknesses: ['complex architecture'],
+    bestFor: ['long documents', 'multilingual tasks', 'efficient inference'],
+    apiUrl: 'https://api.together.xyz/v1',
+    contextWindow: 32768,
+    trainingData: 'Up to 2023',
+    releaseDate: '2023-12-11',
+    license: 'Apache 2.0',
+    architecture: 'Mixture of Experts',
+    modelSize: '8x7B parameters'
+  },
+
+  // Groq Models (Ultra-fast inference)
+  {
+    id: 'groq-llama2-70b',
+    name: 'Llama 2 70B (Groq)',
+    provider: 'groq',
+    modelId: 'llama2-70b-4096',
+    costPer1kInput: 0.0007,
+    costPer1kOutput: 0.0008,
+    maxTokens: 4096,
+    supportsStreaming: true,
+    supportsImages: false,
+    supportsVision: false,
+    supportsAudio: false,
+    supportsVideo: false,
+    supportsCode: true,
+    supportsFunction: false,
+    isOpenSource: true,
+    requiresGPU: true,
+    strengths: ['ultra-fast inference', 'low latency', 'open source', 'high throughput'],
+    weaknesses: ['limited model selection', 'shorter context'],
+    bestFor: ['real-time applications', 'fast responses', 'high-volume requests'],
+    apiUrl: 'https://api.groq.com/openai/v1',
+    contextWindow: 4096,
+    trainingData: 'Up to 2023',
+    releaseDate: '2023-07-18',
+    license: 'Custom License',
+    architecture: 'Transformer',
+    modelSize: '70B parameters'
+  },
+  {
+    id: 'groq-mixtral-8x7b',
+    name: 'Mixtral 8x7B (Groq)',
+    provider: 'groq',
+    modelId: 'mixtral-8x7b-32768',
+    costPer1kInput: 0.0006,
+    costPer1kOutput: 0.0006,
+    maxTokens: 32768,
+    supportsStreaming: true,
+    supportsImages: false,
+    supportsVision: false,
+    supportsAudio: false,
+    supportsVideo: false,
+    supportsCode: true,
+    supportsFunction: false,
+    isOpenSource: true,
+    requiresGPU: true,
+    strengths: ['ultra-fast inference', 'long context', 'mixture of experts', 'high performance'],
+    weaknesses: ['limited availability'],
+    bestFor: ['long conversations', 'document analysis', 'fast inference'],
+    apiUrl: 'https://api.groq.com/openai/v1',
+    contextWindow: 32768,
+    trainingData: 'Up to 2023',
+    releaseDate: '2023-12-11',
+    license: 'Apache 2.0',
+    architecture: 'Mixture of Experts',
+    modelSize: '8x7B parameters'
+  },
+
+  // Replicate Models
+  {
+    id: 'replicate-sdxl',
+    name: 'SDXL (Replicate)',
+    provider: 'replicate',
+    modelId: 'stability-ai/sdxl:39ed52f2a78e934b3ba6e2a89f5b1c712de7dfea535525255b1aa35c5565e08b',
+    costPer1kInput: 0,
+    costPer1kOutput: 0,
+    maxTokens: 512,
+    supportsStreaming: false,
+    supportsImages: true,
+    supportsVision: false,
+    supportsAudio: false,
+    supportsVideo: false,
+    supportsCode: false,
+    supportsFunction: false,
+    isOpenSource: true,
+    requiresGPU: true,
+    strengths: ['high quality images', 'fast generation', 'open source', 'community models'],
+    weaknesses: ['pay per use', 'image only'],
+    bestFor: ['image generation', 'art creation', 'visual content'],
+    apiUrl: 'https://api.replicate.com/v1',
+    contextWindow: 512,
+    trainingData: 'LAION-5B',
+    releaseDate: '2023-07-26',
+    license: 'CreativeML Open RAIL++-M',
+    architecture: 'Diffusion',
+    modelSize: '3.5B parameters'
+  },
+
+  // OpenRouter Popular Models  
+  {
+    id: 'openrouter-code-llama',
+    name: 'Code Llama (OpenRouter)',
+    provider: 'openrouter',
+    modelId: 'codellama/codellama-34b-instruct',
+    costPer1kInput: 0.0005,
+    costPer1kOutput: 0.0005,
+    maxTokens: 8192,
+    supportsStreaming: true,
+    supportsImages: false,
+    supportsVision: false,
+    supportsAudio: false,
+    supportsVideo: false,
+    supportsCode: true,
+    supportsFunction: true,
+    isOpenSource: true,
+    requiresGPU: true,
+    strengths: ['specialized for code', 'large context', 'open source', 'Meta developed'],
+    weaknesses: ['code-focused only'],
+    bestFor: ['code generation', 'programming assistance', 'debugging'],
+    apiUrl: 'https://openrouter.ai/api/v1',
+    contextWindow: 8192,
+    trainingData: 'Code datasets up to 2023',
+    releaseDate: '2023-08-24',
+    license: 'Custom License',
+    architecture: 'Transformer',
+    modelSize: '34B parameters'
+  },
+
+  // HuggingFace Free Models
+  {
+    id: 'hf-microsoft-dialoGPT-large',
+    name: 'Microsoft DialoGPT Large (Free)',
+    provider: 'huggingface',
+    modelId: 'microsoft/DialoGPT-large',
+    costPer1kInput: 0,
+    costPer1kOutput: 0,
+    maxTokens: 1024,
+    supportsStreaming: false,
+    supportsImages: false,
+    supportsVision: false,
+    supportsAudio: false,
+    supportsVideo: false,
+    supportsCode: false,
+    supportsFunction: false,
+    isOpenSource: true,
+    requiresGPU: false,
+    strengths: ['free', 'conversational', 'no API key required'],
+    weaknesses: ['limited capabilities', 'older model'],
+    bestFor: ['simple chat', 'testing', 'prototyping'],
+    apiUrl: 'https://api-inference.huggingface.co/models',
+    contextWindow: 1024,
+    trainingData: 'Reddit conversations',
+    releaseDate: '2020-02-26',
+    license: 'MIT',
+    architecture: 'GPT-2',
+    modelSize: '774M parameters'
+  },
+  {
+    id: 'hf-google-flan-t5-large',
+    name: 'Google Flan-T5 Large (Free)',
+    provider: 'huggingface',
+    modelId: 'google/flan-t5-large',
+    costPer1kInput: 0,
+    costPer1kOutput: 0,
+    maxTokens: 512,
+    supportsStreaming: false,
+    supportsImages: false,
+    supportsVision: false,
+    supportsAudio: false,
+    supportsVideo: false,
+    supportsCode: true,
+    supportsFunction: false,
+    isOpenSource: true,
+    requiresGPU: false,
+    strengths: ['free', 'instruction following', 'versatile'],
+    weaknesses: ['limited context', 'slower inference'],
+    bestFor: ['Q&A', 'instruction following', 'simple tasks'],
+    apiUrl: 'https://api-inference.huggingface.co/models',
+    contextWindow: 512,
+    trainingData: 'Flan collection',
+    releaseDate: '2022-10-20',
+    license: 'Apache 2.0',
+    architecture: 'T5',
+    modelSize: '780M parameters'
+  },
+
+  // DeepInfra Models (Very cheap)
+  {
+    id: 'deepinfra-meta-llama-3.1-8b-instruct',
+    name: 'Meta Llama 3.1 8B Instruct (DeepInfra)',
+    provider: 'deepinfra',
+    modelId: 'meta-llama/Meta-Llama-3.1-8B-Instruct',
+    costPer1kInput: 0.08,
+    costPer1kOutput: 0.08,
+    maxTokens: 32768,
+    supportsStreaming: true,
+    supportsImages: false,
+    supportsVision: false,
+    supportsAudio: false,
+    supportsVideo: false,
+    supportsCode: true,
+    supportsFunction: false,
+    isOpenSource: true,
+    requiresGPU: true,
+    strengths: ['very cheap', 'fast', 'good performance', 'long context'],
+    weaknesses: ['requires API key'],
+    bestFor: ['cost-sensitive apps', 'high volume', 'general tasks'],
+    apiUrl: 'https://api.deepinfra.com/v1/openai',
+    contextWindow: 32768,
+    trainingData: 'Up to 2024',
+    releaseDate: '2024-07-23',
+    license: 'Llama 3.1 Custom',
+    architecture: 'Llama 3.1',
+    modelSize: '8B parameters'
+  },
+  {
+    id: 'deepinfra-mixtral-8x7b-instruct',
+    name: 'Mixtral 8x7B Instruct (DeepInfra)',
+    provider: 'deepinfra',
+    modelId: 'mistralai/Mixtral-8x7B-Instruct-v0.1',
+    costPer1kInput: 0.24,
+    costPer1kOutput: 0.24,
+    maxTokens: 32768,
+    supportsStreaming: true,
+    supportsImages: false,
+    supportsVision: false,
+    supportsAudio: false,
+    supportsVideo: false,
+    supportsCode: true,
+    supportsFunction: false,
+    isOpenSource: true,
+    requiresGPU: true,
+    strengths: ['mixture of experts', 'efficient', 'multilingual', 'cheap'],
+    weaknesses: ['complex architecture'],
+    bestFor: ['multilingual tasks', 'efficient inference', 'cost optimization'],
+    apiUrl: 'https://api.deepinfra.com/v1/openai',
+    contextWindow: 32768,
+    trainingData: 'Up to 2023',
+    releaseDate: '2023-12-11',
+    license: 'Apache 2.0',
+    architecture: 'Mixture of Experts',
+    modelSize: '8x7B parameters'
   }
 ];
 
@@ -554,6 +936,88 @@ export const SOPHISTICATED_ROUTING_RULES: RoutingRule[] = [
     targetModel: 'claude-3-haiku',
     priority: 5,
     confidence: 0.8
+  },
+
+  // Free Model Preference
+  {
+    id: 'free-models',
+    name: 'Free Models',
+    conditions: {
+      keywords: ['free', 'no cost', 'budget', 'test', 'demo', 'prototype'],
+      complexity: 'simple'
+    },
+    targetModel: 'hf-google-flan-t5-large',
+    priority: 8,
+    confidence: 0.9
+  },
+
+  // Ultra-cheap alternatives
+  {
+    id: 'ultra-cheap',
+    name: 'Ultra-cheap alternatives',
+    conditions: {
+      keywords: ['cheap', 'budget', 'affordable', 'low cost'],
+      complexity: 'medium'
+    },
+    targetModel: 'deepinfra-meta-llama-3.1-8b-instruct',
+    priority: 7,
+    confidence: 0.85
+  },
+
+  // Open Source Model Rules
+  {
+    id: 'open-source-preference',
+    name: 'Open Source Preference',
+    conditions: {
+      keywords: ['open source', 'open-source', 'free', 'local', 'privacy', 'offline'],
+    },
+    targetModel: 'together-llama-2-70b',
+    priority: 8,
+    confidence: 0.9
+  },
+  {
+    id: 'fast-inference',
+    name: 'Ultra-Fast Inference',
+    conditions: {
+      keywords: ['fast', 'quick', 'speed', 'real-time', 'instant', 'rapid'],
+      urgency: 'high'
+    },
+    targetModel: 'groq-llama2-70b',
+    priority: 9,
+    confidence: 0.85
+  },
+  {
+    id: 'cost-optimization',
+    name: 'Cost Optimization',
+    conditions: {
+      keywords: ['cheap', 'affordable', 'cost', 'budget', 'economical'],
+      complexity: 'simple'
+    },
+    targetModel: 'replicate-llama-2-13b',
+    priority: 7,
+    confidence: 0.8
+  },
+  {
+    id: 'long-context-open-source',
+    name: 'Long Context Open Source',
+    conditions: {
+      queryLength: { min: 2000 },
+      keywords: ['document', 'long', 'analyze', 'review']
+    },
+    targetModel: 'together-mixtral-8x7b',
+    priority: 8,
+    confidence: 0.85
+  },
+  {
+    id: 'code-specialized',
+    name: 'Code Specialized',
+    conditions: {
+      keywords: ['code', 'programming', 'debug', 'function', 'algorithm'],
+      contentType: 'code'
+    },
+    targetModel: 'openrouter-code-llama',
+    priority: 9,
+    confidence: 0.9
   },
 
   // General Purpose Fallback
@@ -883,7 +1347,7 @@ export class SophisticatedAIRouter {
     return true;
   }
 
-  private calculateCost(model: ModelConfig, estimatedTokens: number): number {
+  public calculateCost(model: ModelConfig, estimatedTokens: number): number {
     const inputTokens = estimatedTokens;
     const outputTokens = estimatedTokens * 0.5; // Assume output is half of input
     

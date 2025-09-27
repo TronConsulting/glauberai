@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAuthCookie, verifyJwt } from '@/lib/auth';
-import { sophisticatedAIRouter } from '@/lib/ai-routing';
+import { sophisticatedAIRouter, SophisticatedAIRouter, COMPREHENSIVE_MODELS } from '@/lib/ai-routing';
+import { enhancedAIIntegration } from '@/lib/enhanced-ai-integration';
+import { customModelDeployment } from '@/lib/custom-model-deployment';
 import { prisma } from '@/lib/prisma';
 import { fileStorage } from '@/lib/file-storage';
-import { aiIntegration } from '@/lib/ai-integration';
 
 export async function POST(req: NextRequest) {
   const token = getAuthCookie();
@@ -127,25 +128,41 @@ export async function POST(req: NextRequest) {
     // Create enhanced query for AI routing
     const enhancedQuery = query + fileAnalysis;
     
+    // Initialize enhanced AI router with comprehensive models
+    const enhancedRouter = new SophisticatedAIRouter(COMPREHENSIVE_MODELS);
+    
     // Use sophisticated AI routing with file context
-    const routing = sophisticatedAIRouter.routeQuery(enhancedQuery, selectedModel, files);
+    const routing = enhancedRouter.routeQuery(enhancedQuery, selectedModel, files);
     
     // Analyze the query for content type detection
-    const analysis = sophisticatedAIRouter.analyzeQuery(enhancedQuery, files);
+    const analysis = enhancedRouter.analyzeQuery(enhancedQuery, files);
 
     console.log('AI Routing selected:', routing.selectedModel.name);
     console.log('Content type detected:', analysis.contentType);
     console.log('Routing reasoning:', routing.reasoning);
+    console.log('Available models:', COMPREHENSIVE_MODELS.length);
+
+    // Check if this is a custom model
+    const isCustomModel = routing.selectedModel.provider === 'custom';
+    const isHuggingFaceModel = routing.selectedModel.provider === 'huggingface';
 
     // Convert files to base64 for AI integration
     let fileData: any[] = [];
     if (files && files.length > 0) {
-      fileData = await aiIntegration.filesToBase64(files);
+      fileData = await enhancedAIIntegration.filesToBase64(files);
     }
 
-    // Call the selected AI model
-    console.log('Calling AI model:', routing.selectedModel.name);
-    const aiResponse = await aiIntegration.callModel(routing.selectedModel, query, fileData);
+    // Call the selected AI model with enhanced integration
+    console.log('Calling AI model:', routing.selectedModel.name, 'Provider:', routing.selectedModel.provider);
+    const aiResponse = await enhancedAIIntegration.callModelEnhanced(
+      routing.selectedModel, 
+      query, 
+      fileData,
+      {
+        temperature: 0.7,
+        maxTokens: Math.min(routing.selectedModel.maxTokens, 4000)
+      }
+    );
     
     let response = aiResponse.content;
     const tokens = aiResponse.tokens;
@@ -215,6 +232,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({
       response,
       model: routing.selectedModel.name,
+      provider: routing.selectedModel.provider,
       reasoning: routing.reasoning,
       usage: updatedUsage,
       remainingTokens: updatedUsage.remainingTokens,
@@ -223,7 +241,21 @@ export async function POST(req: NextRequest) {
       hasImages,
       hasDocuments,
       estimatedCost: routing.estimatedCost,
-      confidence: routing.confidence
+      confidence: routing.confidence,
+      responseType: aiResponse.type || 'text',
+      isOpenSource: routing.selectedModel.isOpenSource || false,
+      modelCapabilities: {
+        streaming: routing.selectedModel.supportsStreaming,
+        vision: routing.selectedModel.supportsVision,
+        code: routing.selectedModel.supportsCode,
+        multimodal: routing.selectedModel.supportsImages || routing.selectedModel.supportsAudio
+      },
+      alternatives: routing.alternatives?.map(alt => ({
+        name: alt.name,
+        provider: alt.provider,
+        strengths: alt.strengths,
+        estimatedCost: enhancedRouter.calculateCost ? enhancedRouter.calculateCost(alt, analysis.estimatedTokens) : 0
+      })) || []
     });
 
   } catch (error) {

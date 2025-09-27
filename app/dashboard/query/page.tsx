@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { DashboardLayout } from '@/components/layout/dashboard-layout';
 import { Copy, Loader2, Send, Crown, AlertTriangle, Sparkles, Paperclip, X, Upload, FileText, Image as ImageIcon } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
@@ -190,8 +189,7 @@ export default function QueryPage() {
   }
 
   return (
-    <DashboardLayout>
-      <div className="max-w-4xl mx-auto py-10 px-4">
+    <div className="max-w-4xl mx-auto py-10 px-4">
         {/* Header */}
         <div className="text-center mb-8">
           <div className="flex items-center justify-center gap-3 mb-4">
@@ -595,7 +593,6 @@ export default function QueryPage() {
             </div>
           </DialogContent>
         </Dialog>
-      </div>
-    </DashboardLayout>
+    </div>
   );
 } 

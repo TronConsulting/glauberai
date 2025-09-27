@@ -28,14 +28,21 @@ export default function DemoPage() {
   const demoQueries = [
     "Generate a Python function to sort a list",
     "Write a creative story about AI",
+    "Create an image of a futuristic cityscape at sunset",
     "Analyze this quarterly report data",
-    "Explain quantum computing simply"
+    "Explain quantum computing simply",
+    "Generate a digital art piece of a mystical forest",
+    "Create a photorealistic portrait of an astronaut",
+    "Design a logo for a tech startup"
   ];
 
   const models = [
     { id: 'auto', name: 'Auto (Recommended)', description: 'Let GlauberAI choose the best model' },
     { id: 'gpt-4-turbo', name: 'GPT-4 Turbo', description: 'Best for complex reasoning and code' },
     { id: 'claude-3-sonnet', name: 'Claude 3 Sonnet', description: 'Great for creative writing and analysis' },
+    { id: 'dalle-3', name: 'DALL-E 3', description: 'High-quality image generation' },
+    { id: 'midjourney-v6', name: 'Midjourney V6', description: 'Artistic image generation' },
+    { id: 'stable-diffusion-xl', name: 'Stable Diffusion XL', description: 'Fast image generation' },
     { id: 'gpt-3.5-turbo', name: 'GPT-3.5 Turbo', description: 'Fast and cost-effective' },
     { id: 'gemini-pro', name: 'Gemini Pro', description: 'Multimodal capabilities' }
   ];
@@ -44,8 +51,12 @@ export default function DemoPage() {
   const heroModels = [
     { id: 'claude-3-sonnet', name: 'Claude 3 Sonnet', reasoning: 'Selected Claude 3 Sonnet based on code-related keywords and programming complexity.' },
     { id: 'gpt-4', name: 'GPT-4', reasoning: 'Selected GPT-4 based on creative writing keywords and medium complexity.' },
+    { id: 'dalle-3', name: 'DALL-E 3', reasoning: 'Selected DALL-E 3 for high-quality image generation with futuristic cityscape theme.' },
     { id: 'gpt-4-turbo', name: 'GPT-4 Turbo', reasoning: 'Selected GPT-4 Turbo for data analysis and report context.' },
-    { id: 'gemini-pro', name: 'Gemini Pro', reasoning: 'Selected Gemini Pro for science and explanation-focused query.' }
+    { id: 'gemini-pro', name: 'Gemini Pro', reasoning: 'Selected Gemini Pro for science and explanation-focused query.' },
+    { id: 'midjourney-v6', name: 'Midjourney V6', reasoning: 'Selected Midjourney V6 for artistic and mystical forest imagery with superior artistic quality.' },
+    { id: 'dalle-3', name: 'DALL-E 3', reasoning: 'Selected DALL-E 3 for photorealistic portrait generation with advanced detail rendering.' },
+    { id: 'stable-diffusion-xl', name: 'Stable Diffusion XL', reasoning: 'Selected Stable Diffusion XL for fast logo design generation with cost optimization.' }
   ];
 
   const handleDemo = async () => {
@@ -97,6 +108,95 @@ print(fibonacci(10))  # Output: 55
 This implementation uses an iterative approach with O(n) time complexity and O(1) space complexity, making it efficient for large values of n.`;
     }
     
+    if (query.toLowerCase().includes('image') || query.toLowerCase().includes('create') || query.toLowerCase().includes('generate')) {
+      if (query.toLowerCase().includes('cityscape')) {
+        return `🎨 **Image Generated Successfully!**
+
+**Prompt Enhanced:** "A breathtaking futuristic cityscape at golden hour sunset, with gleaming glass skyscrapers reflecting orange and pink hues, flying vehicles in the sky, neon lights beginning to illuminate, ultra-detailed, cinematic lighting, 8K resolution"
+
+**Model Used:** DALL-E 3
+**Resolution:** 1024x1024
+**Style:** Photorealistic with cinematic lighting
+**Processing Time:** 12.3 seconds
+
+**Features Detected:**
+✅ Futuristic architecture
+✅ Sunset lighting conditions  
+✅ Urban environment
+✅ High detail requirements
+
+The image has been generated and would be displayed here in a real implementation. DALL-E 3 was selected for its superior photorealistic capabilities and architectural detail rendering.`;
+      }
+      
+      if (query.toLowerCase().includes('forest') || query.toLowerCase().includes('mystical')) {
+        return `🎨 **Artistic Image Generated!**
+
+**Prompt Enhanced:** "An enchanted mystical forest with ancient towering trees, ethereal light filtering through canopy, glowing magical particles, misty atmosphere, fantasy art style, highly detailed, concept art quality"
+
+**Model Used:** Midjourney V6
+**Style:** Fantasy Art / Digital Painting
+**Aspect Ratio:** 16:9
+**Processing Time:** 15.7 seconds
+
+**Artistic Elements:**
+✅ Mystical atmosphere
+✅ Natural lighting effects
+✅ Fantasy elements
+✅ High artistic quality
+
+Midjourney V6 was chosen for its exceptional artistic interpretation and fantasy scene generation capabilities. The result would showcase superior artistic flair and imaginative composition.`;
+      }
+      
+      if (query.toLowerCase().includes('astronaut') || query.toLowerCase().includes('portrait')) {
+        return `🎨 **Portrait Generated!**
+
+**Prompt Enhanced:** "A photorealistic portrait of an astronaut in a detailed space suit, helmet reflecting Earth and stars, dramatic lighting, professional studio quality, ultra-high detail, 8K resolution"
+
+**Model Used:** DALL-E 3
+**Resolution:** 1024x1024
+**Style:** Photorealistic Portrait
+**Processing Time:** 11.2 seconds
+
+**Technical Specifications:**
+✅ Photorealistic rendering
+✅ Professional lighting
+✅ High detail facial features
+✅ Accurate space suit design
+
+DALL-E 3 excels at photorealistic human portraits with technical accuracy and professional studio-quality lighting.`;
+      }
+      
+      if (query.toLowerCase().includes('logo')) {
+        return `🎨 **Logo Design Created!**
+
+**Prompt Enhanced:** "Modern minimalist logo for tech startup, clean geometric design, professional color palette, scalable vector style, innovative and trustworthy appearance"
+
+**Model Used:** Stable Diffusion XL
+**Format:** Vector-style design
+**Colors:** Modern palette (Blues/Grays)
+**Processing Time:** 4.8 seconds
+
+**Design Elements:**
+✅ Minimalist approach
+✅ Scalable design
+✅ Professional appearance
+✅ Tech industry appropriate
+
+Stable Diffusion XL was selected for fast, cost-effective logo generation while maintaining professional quality standards.`;
+      }
+      
+      return `🎨 **Image Generation Ready!**
+
+I've analyzed your request and selected the optimal image generation model based on your requirements. The system would generate a high-quality image tailored to your specific needs.
+
+**Available Models:**
+• **DALL-E 3** - Photorealistic, high detail
+• **Midjourney V6** - Artistic, creative interpretation  
+• **Stable Diffusion XL** - Fast, cost-effective
+
+Your image would be generated and displayed here in the full application.`;
+    }
+    
     if (query.toLowerCase().includes('quantum')) {
       return `Quantum computing is like having a magical computer that can explore multiple solutions simultaneously, rather than checking them one by one like traditional computers.
 
@@ -138,8 +238,8 @@ This ensures you get the best possible response while optimizing for both qualit
               <span className="block gradient-text">Live Demo</span>
             </h1>
             <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
-              Experience intelligent AI routing in action. See how our system automatically 
-              selects the best model for your specific query.
+              Experience intelligent AI routing in action. Test text generation, image creation, 
+              code assistance, and more with our 30+ AI models including DALL-E 3, Midjourney, and HuggingFace models.
             </p>
           </div>
 

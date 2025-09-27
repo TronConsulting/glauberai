@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { DashboardLayout } from '@/components/layout/dashboard-layout';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -104,17 +103,14 @@ export default function ProfilePage() {
 
   if (loading) {
     return (
-      <DashboardLayout>
-        <div className="min-h-screen flex items-center justify-center">
-          <Loader2 className="h-8 w-8 animate-spin" />
-        </div>
-      </DashboardLayout>
+      <div className="min-h-screen flex items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin" />
+      </div>
     );
   }
 
   return (
-    <DashboardLayout>
-      <div className="max-w-2xl mx-auto py-10">
+    <div className="max-w-2xl mx-auto py-10 px-4">
         <div className="space-y-6">
           <div>
             <h1 className="text-3xl font-bold">Profile Settings</h1>
@@ -239,6 +235,5 @@ export default function ProfilePage() {
           </Tabs>
         </div>
       </div>
-    </DashboardLayout>
   );
 } 

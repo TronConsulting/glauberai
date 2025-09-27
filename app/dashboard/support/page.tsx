@@ -1,11 +1,9 @@
-import { DashboardLayout } from '@/components/layout/dashboard-layout';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 
 export default function SupportPage() {
   return (
-    <DashboardLayout>
-      <div className="max-w-2xl mx-auto py-10">
+    <div className="max-w-2xl mx-auto py-10 px-4">
         <Card>
           <CardHeader>
             <CardTitle>Support</CardTitle>
@@ -28,7 +26,6 @@ export default function SupportPage() {
             </div>
           </CardContent>
         </Card>
-      </div>
-    </DashboardLayout>
+    </div>
   );
 } 

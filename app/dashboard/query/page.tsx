@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -14,18 +14,159 @@ import { Progress } from "@/components/ui/progress";
 import Image from 'next/image';
 import { useAuth } from '@/hooks/use-auth';
 
+interface UsagePlanInfo {
+  name: string;
+  tokens: number;
+  price: number;
+  features?: string[];
+}
+
+interface UsageSummary {
+  tokensUsed: number;
+  planLimit: number;
+  remainingTokens: number;
+  usagePercentage: number;
+  isUnlimited: boolean;
+  currentUsage: number;
+  remainingRequests: number;
+  plan: UsagePlanInfo;
+}
+
+interface ModelCapabilities {
+  streaming?: boolean;
+  vision?: boolean;
+  code?: boolean;
+  multimodal?: boolean;
+}
+
+interface ModelAlternative {
+  name: string;
+  provider: string;
+  strengths?: string[];
+  estimatedCost?: number;
+}
+
+interface ProviderFailure {
+  provider: string;
+  reason: string;
+}
+
+interface QueryResult {
+  model: string;
+  provider: string;
+  reasoning: string;
+  response: string;
+  query: string;
+  timestamp: string;
+  responseType: string;
+  filesProcessed: number;
+  fileTypes: string[];
+  hasImages: boolean;
+  hasDocuments: boolean;
+  estimatedCost?: number;
+  confidence?: number;
+  isOpenSource: boolean;
+  modelCapabilities?: ModelCapabilities;
+  conversationContextIncluded: boolean;
+  conversationMessages?: string;
+  alternatives?: ModelAlternative[];
+  fallbackUsed?: boolean;
+  primaryModel?: string;
+  providerFailures?: ProviderFailure[];
+}
+
+const formatCurrency = (value?: number) => {
+  if (value === undefined || value === null) {
+    return null;
+  }
+  return value.toLocaleString(undefined, { minimumFractionDigits: 4, maximumFractionDigits: 4 });
+};
+
+const formatProviderName = (provider: string) => {
+  if (!provider) return 'Unknown';
+  return provider
+    .split(/[-_]/)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(' ');
+};
+
 export default function QueryPage() {
   const router = useRouter();
   const { user, loading } = useAuth();
   const [query, setQuery] = useState("");
   const [files, setFiles] = useState<File[]>([]);
-  const [result, setResult] = useState<any>(null);
+  const [result, setResult] = useState<QueryResult | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState("");
-  const [usage, setUsage] = useState<any>(null);
+  const [usage, setUsage] = useState<UsageSummary | null>(null);
   const [showUpgradeDialog, setShowUpgradeDialog] = useState(false);
   const [showFileDialog, setShowFileDialog] = useState(false);
   const [dragActive, setDragActive] = useState(false);
+
+  const usageMetrics = useMemo(() => {
+    if (!usage) {
+      return null;
+    }
+
+    const planLimitLabel = usage.planLimit === -1 ? 'Unlimited' : usage.planLimit.toLocaleString();
+    const tokensUsedLabel = usage.tokensUsed.toLocaleString();
+    const currentUsageLabel = usage.currentUsage.toLocaleString();
+    const remainingTokensLabel = usage.remainingTokens === -1 ? 'Unlimited' : Math.max(usage.remainingTokens, 0).toLocaleString();
+    const remainingRequestsLabel = usage.remainingRequests === -1 ? 'Unlimited' : Math.max(usage.remainingRequests, 0).toLocaleString();
+
+    const usageLabel = usage.plan.name === 'STARTER'
+      ? `${tokensUsedLabel} / ${planLimitLabel} tokens`
+      : `${currentUsageLabel} / ${planLimitLabel} requests`;
+
+    const remainingLabel = usage.plan.name === 'STARTER'
+      ? (usage.remainingTokens === -1 ? 'Unlimited tokens remaining' : `${remainingTokensLabel} tokens remaining`)
+      : (usage.remainingRequests === -1 ? 'Unlimited requests remaining' : `${remainingRequestsLabel} requests remaining`);
+
+    const cappedPercentage = usage.planLimit === -1 ? 0 : Math.min(usage.usagePercentage, 100);
+    const percentageLabel = usage.planLimit === -1 ? 'Unlimited plan' : `${cappedPercentage.toFixed(1)}% used`;
+
+    return {
+      usageLabel,
+      remainingLabel,
+      planLimitLabel,
+      percentage: cappedPercentage,
+      percentageLabel,
+    };
+  }, [usage]);
+
+  const capabilityBadges = useMemo(() => {
+    if (!result?.modelCapabilities) {
+      return [] as string[];
+    }
+    const badges: string[] = [];
+    if (result.modelCapabilities.streaming) {
+      badges.push('Streaming');
+    }
+    if (result.modelCapabilities.vision) {
+      badges.push('Vision');
+    }
+    if (result.modelCapabilities.code) {
+      badges.push('Code');
+    }
+    if (result.modelCapabilities.multimodal) {
+      badges.push('Multimodal');
+    }
+    return badges;
+  }, [result?.modelCapabilities]);
+
+  const estimatedCostLabel = result ? formatCurrency(result.estimatedCost) : null;
+
+  const conversationPreview = useMemo(() => {
+    if (!result?.conversationMessages) {
+      return null;
+    }
+    const lines = result.conversationMessages.trim().split('\n');
+    if (lines.length <= 12) {
+      return result.conversationMessages.trim();
+    }
+    const recent = lines.slice(-12).join('\n');
+    return `${recent}\n...`;
+  }, [result?.conversationMessages]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -49,36 +190,68 @@ export default function QueryPage() {
       files.forEach((file, index) => {
         formData.append('files', file);
       });
-      
-      console.log('Submitting with files:', files.map(f => f.name));
-      
       const res = await fetch('/api/query', {
         method: 'POST',
         body: formData
       });
       
       const data = await res.json();
-      
+
       if (!res.ok) {
         if (res.status === 429 && data.requiresUpgrade) {
           setError(data.error);
           setShowUpgradeDialog(true);
-          setUsage(data.usage);
+          const usageSnapshot = data.usage as UsageSummary | undefined;
+          setUsage(usageSnapshot ?? null);
         } else {
           setError(data.error || 'Failed to get response. Please try again.');
         }
         return;
       }
-      
-      setResult({
+
+      const cleanedQuery = query.trim() || 'Analyze attached files';
+      const mappedResult: QueryResult = {
         model: data.model,
+        provider: data.provider,
         reasoning: data.reasoning,
         response: data.response,
-        query: query.trim() || 'Analyze attached files',
+        query: cleanedQuery,
         timestamp: new Date().toLocaleTimeString(),
-      });
-      
-      setUsage(data.usage);
+        responseType: data.responseType ?? 'text',
+        filesProcessed: data.filesProcessed ?? 0,
+        fileTypes: Array.isArray(data.fileTypes) ? data.fileTypes : [],
+        hasImages: Boolean(data.hasImages),
+        hasDocuments: Boolean(data.hasDocuments),
+        estimatedCost: data.estimatedCost,
+        confidence: data.confidence,
+        isOpenSource: Boolean(data.isOpenSource),
+        modelCapabilities: data.modelCapabilities,
+        conversationContextIncluded: Boolean(data.conversationContextIncluded),
+        conversationMessages: data.conversationMessages,
+        alternatives: Array.isArray(data.alternatives)
+          ? data.alternatives.map((alt: any) => ({
+              name: alt.name,
+              provider: alt.provider,
+              strengths: Array.isArray(alt.strengths) ? alt.strengths : undefined,
+              estimatedCost: typeof alt.estimatedCost === 'number' ? alt.estimatedCost : undefined,
+            }))
+          : undefined,
+        fallbackUsed: Boolean(data.fallbackUsed),
+        primaryModel: typeof data.primaryModel === 'string' ? data.primaryModel : undefined,
+        providerFailures: Array.isArray(data.providerFailures)
+          ? data.providerFailures.map((failure: any) => ({
+              provider: String(failure.provider ?? ''),
+              reason: String(failure.reason ?? '')
+            }))
+          : undefined,
+      };
+
+      setResult(mappedResult);
+
+      const usageSnapshot = data.usage as UsageSummary | undefined;
+      if (usageSnapshot) {
+        setUsage(usageSnapshot);
+      }
       toast({ title: 'Success', description: 'Query processed successfully!' });
     } catch (err) {
       console.error('Error submitting query:', err);
@@ -251,19 +424,13 @@ export default function QueryPage() {
                 <div className="flex items-center justify-between">
                   <span className="text-sm font-medium">Monthly Usage</span>
                   <span className="text-sm text-muted-foreground">
-                    {usage.plan.name === 'STARTER'
-                      ? `${usage.tokensUsed} / ${usage.planLimit} tokens`
-                      : `${usage.currentUsage} / ${usage.planLimit} requests`}
+                    {usageMetrics?.usageLabel}
                   </span>
                 </div>
-                <Progress value={usage.usagePercentage} className="h-2" />
+                <Progress value={usageMetrics?.percentage ?? 0} className="h-2" />
                 <div className="flex items-center justify-between text-xs text-muted-foreground">
-                  <span>
-                    {usage.plan.name === 'STARTER'
-                      ? (usage.remainingTokens > 0 ? `${usage.remainingTokens} tokens remaining` : 'Limit reached')
-                      : (usage.remainingRequests > 0 ? `${usage.remainingRequests} requests remaining` : 'Limit reached')}
-                  </span>
-                  <span>{usage.usagePercentage.toFixed(1)}% used</span>
+                  <span>{usageMetrics?.remainingLabel}</span>
+                  <span>{usageMetrics?.percentageLabel}</span>
                 </div>
               </div>
               {/* Upgrade Suggestions */}
@@ -331,6 +498,9 @@ export default function QueryPage() {
                   className="resize-none bg-muted/50 border-2 border-accent focus:border-primary transition text-lg"
                   disabled={isSubmitting}
                 />
+                <p className="mt-2 text-xs text-muted-foreground">
+                  Responses are capped at 500 tokens (including attachments) for reliability.
+                </p>
               </div>
 
               {/* File Upload */}
@@ -421,10 +591,37 @@ export default function QueryPage() {
             {result && (
               <div className="mt-8 space-y-4">
                 {/* Model Info */}
-                <div className="flex items-center justify-between p-4 bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-950/50 dark:to-purple-950/50 rounded-lg">
-                  <div className="flex items-center gap-3">
-                    <Badge variant="default" className="text-sm">{result.model}</Badge>
-                    <span className="text-sm text-muted-foreground">Smart routing selected this model</span>
+                <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between p-4 bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-950/50 dark:to-purple-950/50 rounded-lg">
+                  <div className="space-y-2">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Badge variant="default" className="text-sm">{result.model}</Badge>
+                      {result.provider && (
+                        <Badge variant="outline" className="text-sm capitalize">{result.provider}</Badge>
+                      )}
+                      {result.responseType && (
+                        <Badge variant="outline" className="text-sm">{result.responseType}</Badge>
+                      )}
+                      {result.isOpenSource && (
+                        <Badge variant="secondary" className="text-sm">Open Source</Badge>
+                      )}
+                      {result.fallbackUsed && result.primaryModel && (
+                        <Badge
+                          variant="outline"
+                          className="text-xs uppercase tracking-wide text-amber-700 border-amber-400 bg-amber-50"
+                        >
+                          Fallback from {result.primaryModel}
+                        </Badge>
+                      )}
+                    </div>
+                    <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
+                      <span>Smart routing selected this model</span>
+                      {result.conversationContextIncluded && (
+                        <span className="flex items-center gap-1 text-blue-600 dark:text-blue-300">
+                          <Sparkles className="h-3 w-3" />
+                          Conversation context applied
+                        </span>
+                      )}
+                    </div>
                   </div>
                   <Button variant="ghost" size="icon" onClick={handleCopy}>
                     <Copy className="h-4 w-4" />
@@ -466,17 +663,67 @@ export default function QueryPage() {
                         )}
                       </div>
                       <p className="text-sm text-blue-700 dark:text-blue-300">
-                        {result.reasoning}
+                        {result.reasoning || 'The routing engine selected this model based on relevance and capabilities.'}
                       </p>
-                      {result.estimatedCost && (
+                      {capabilityBadges.length > 0 && (
+                        <div className="flex flex-wrap items-center gap-2 text-xs text-blue-600 dark:text-blue-400">
+                          <span>Capabilities:</span>
+                          {capabilityBadges.map((capability) => (
+                            <Badge key={capability} variant="secondary" className="capitalize">
+                              {capability}
+                            </Badge>
+                          ))}
+                        </div>
+                      )}
+                      {estimatedCostLabel && (
                         <div className="flex items-center gap-2 text-xs text-blue-600 dark:text-blue-400">
                           <span>Estimated cost:</span>
-                          <span className="font-medium">${result.estimatedCost.toFixed(4)}</span>
+                          <span className="font-medium">${estimatedCostLabel}</span>
                         </div>
                       )}
                     </div>
                   </CardContent>
                 </Card>
+
+                {/* Conversation Context */}
+                {result.conversationContextIncluded && conversationPreview && (
+                  <Card className="border-indigo-200 bg-indigo-50/50 dark:border-indigo-800 dark:bg-indigo-950/50">
+                    <CardContent className="pt-4 space-y-2 text-sm text-indigo-800 dark:text-indigo-200">
+                      <div className="flex items-center gap-2">
+                        <Sparkles className="h-4 w-4" />
+                        <span className="font-medium">Recent conversation context</span>
+                      </div>
+                      <pre className="whitespace-pre-wrap rounded-md bg-white/60 dark:bg-black/20 p-3 text-xs text-indigo-900 dark:text-indigo-100 border border-indigo-200/70 dark:border-indigo-700/70">
+                        {conversationPreview}
+                      </pre>
+                      <p className="text-xs text-indigo-700/80 dark:text-indigo-300/80">
+                        Earlier exchanges are blended into the prompt to maintain continuity.
+                      </p>
+                    </CardContent>
+                  </Card>
+                )}
+
+                {result.providerFailures && result.providerFailures.length > 0 && (
+                  <Card className="border-amber-200 bg-amber-50/60 dark:border-amber-900 dark:bg-amber-950/40">
+                    <CardContent className="pt-4 space-y-3 text-sm text-amber-800 dark:text-amber-100">
+                      <div className="flex items-center gap-2">
+                        <AlertTriangle className="h-4 w-4" />
+                        <span className="font-medium">Provider diagnostics</span>
+                      </div>
+                      <p className="text-xs text-amber-700/80 dark:text-amber-200/80">
+                        We attempted multiple providers automatically. Here are the latest responses from each service:
+                      </p>
+                      <ul className="space-y-2 text-xs">
+                        {result.providerFailures.map((failure, index) => (
+                          <li key={`${failure.provider}-${index}`} className="rounded-md border border-amber-200/60 dark:border-amber-800/60 bg-white/70 dark:bg-black/30 p-2">
+                            <span className="font-semibold uppercase tracking-wide">{formatProviderName(failure.provider)}</span>
+                            <span className="ml-2 text-amber-700/90 dark:text-amber-200/90">{failure.reason}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </CardContent>
+                  </Card>
+                )}
 
                 {/* Response */}
                 <Card>
@@ -484,6 +731,38 @@ export default function QueryPage() {
                     <div className="whitespace-pre-line text-base leading-relaxed">{result.response}</div>
                   </CardContent>
                 </Card>
+
+                {/* Suggested Alternatives */}
+                {result.alternatives && result.alternatives.length > 0 && (
+                  <Card className="border-slate-200 bg-slate-50/40 dark:border-slate-800 dark:bg-slate-950/40">
+                    <CardContent className="pt-4 space-y-3">
+                      <h3 className="text-sm font-medium text-slate-900 dark:text-slate-100">Other viable models</h3>
+                      <div className="space-y-2 text-xs text-slate-700 dark:text-slate-300">
+                        {result.alternatives.map((alt) => {
+                          const altCost = formatCurrency(alt.estimatedCost);
+                          return (
+                            <div key={`${alt.provider}-${alt.name}`} className="rounded-md bg-white/70 dark:bg-black/30 border border-slate-200/70 dark:border-slate-700/70 p-3">
+                              <div className="flex flex-wrap items-center gap-2 mb-1">
+                                <Badge variant="outline" className="text-xs">{alt.name}</Badge>
+                                <Badge variant="outline" className="text-xs capitalize">{alt.provider}</Badge>
+                                {altCost && (
+                                  <span className="text-[11px] text-slate-500 dark:text-slate-400">~${altCost}</span>
+                                )}
+                              </div>
+                              {alt.strengths && alt.strengths.length > 0 && (
+                                <ul className="list-disc list-inside space-y-1 text-[11px] text-slate-600 dark:text-slate-300">
+                                  {alt.strengths.map((strength, index) => (
+                                    <li key={index}>{strength}</li>
+                                  ))}
+                                </ul>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
               </div>
             )}
           </CardContent>

@@ -58,7 +58,7 @@ export default function DashboardPage() {
   }, []);
 
   useEffect(() => {
-    const tab = searchParams?.get('tab');
+    const tab = searchParams.get('tab');
     if (tab && tab !== 'overview') {
       if (tab === 'query') router.push('/dashboard/query');
       else if (tab === 'analytics') router.push('/dashboard/analytics');
@@ -297,3 +297,4 @@ export default function DashboardPage() {
     </div>
   );
 }
+

@@ -69,6 +69,65 @@ export class EnhancedAIIntegration extends AIIntegration {
     };
   }
 
+  public isModelOperational(model: ModelConfig): boolean {
+    const requiresKey = (key?: string) => Boolean(key && key.trim().length > 0);
+
+    switch (model.provider) {
+      case 'openai':
+      case 'dalle':
+        return requiresKey(this.apiKeys.openai);
+      case 'anthropic':
+        return requiresKey(this.apiKeys.anthropic);
+      case 'google':
+        return requiresKey(this.apiKeys.google);
+      case 'cohere':
+        return requiresKey(this.apiKeys.cohere);
+      case 'mistral':
+        return requiresKey(this.apiKeys.mistral);
+      case 'stability':
+        return requiresKey(this.apiKeys.stability);
+      case 'huggingface':
+        return requiresKey(this.apiKeys.huggingface);
+      case 'replicate':
+        return requiresKey(this.apiKeys.replicate);
+      case 'together':
+        return requiresKey(this.apiKeys.together);
+      case 'groq':
+        return requiresKey(this.apiKeys.groq);
+      case 'openrouter':
+        return requiresKey(this.apiKeys.openrouter);
+      case 'perplexity':
+        return requiresKey(this.apiKeys.perplexity);
+      case 'fireworks':
+        return requiresKey(this.apiKeys.fireworks);
+      case 'runpod':
+        return requiresKey(this.apiKeys.runpod);
+      case 'deepinfra':
+        return requiresKey(this.apiKeys.deepinfra);
+      case 'alibaba':
+        return requiresKey(this.apiKeys.alibaba);
+      case 'baichuan':
+        return requiresKey(this.apiKeys.baichuan);
+      case 'zhipu':
+        return requiresKey(this.apiKeys.zhipu);
+      case 'moonshot':
+        return requiresKey(this.apiKeys.moonshot);
+      case 'yandex':
+        return requiresKey(this.apiKeys.yandex);
+      case 'ai21':
+        return requiresKey(this.apiKeys.ai21);
+      case 'custom':
+        return true;
+      case 'ollama':
+      case 'local':
+        return true;
+      case 'midjourney':
+        return false;
+      default:
+        return true;
+    }
+  }
+
   async callModelEnhanced(
     model: ModelConfig,
     query: string,

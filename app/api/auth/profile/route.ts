@@ -4,7 +4,7 @@ import { prisma } from '@/lib/prisma';
 import bcrypt from 'bcryptjs';
 
 export async function PUT(req: NextRequest) {
-  const token = getAuthCookie();
+  const token = await getAuthCookie();
   if (!token) {
     return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
   }
@@ -14,11 +14,16 @@ export async function PUT(req: NextRequest) {
     return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
   }
 
+  const userId = typeof decoded === 'object' && 'id' in decoded ? String(decoded.id) : null;
+  if (!userId) {
+    return NextResponse.json({ error: 'Invalid token payload' }, { status: 401 });
+  }
+
   try {
     const { fullName, currentPassword, newPassword } = await req.json();
 
     const user = await prisma.user.findUnique({
-      where: { id: decoded.id as string }
+      where: { id: userId }
     });
 
     if (!user) {
@@ -48,7 +53,7 @@ export async function PUT(req: NextRequest) {
 
     // Update user
     const updatedUser = await prisma.user.update({
-      where: { id: decoded.id as string },
+      where: { id: userId },
       data: updateData,
       select: {
         id: true,
@@ -64,7 +69,7 @@ export async function PUT(req: NextRequest) {
       email: updatedUser.email, 
       fullName: updatedUser.fullName 
     });
-    setAuthCookie(newToken);
+    await setAuthCookie(newToken);
 
     return NextResponse.json({ 
       user: updatedUser,

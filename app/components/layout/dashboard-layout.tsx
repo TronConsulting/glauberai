@@ -1,4 +1,4 @@
-import { ReactNode } from 'react';
+import { ReactNode, useMemo } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { cn } from '@/lib/utils';
@@ -34,30 +34,48 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
     router.push('/');
   };
 
-  const getUserDisplayName = () => {
-    if (user?.fullName) {
-      return user.fullName;
+  const displayName = useMemo(() => {
+    const fullName = user?.fullName?.trim();
+    if (fullName) {
+      return fullName;
     }
-    if (user?.email) {
-      return user.email.split('@')[0];
-    }
-    return 'User';
-  };
 
-  const getUserInitials = () => {
-    if (user?.fullName) {
-      return user.fullName
-        .split(' ')
-        .map(name => name[0])
-        .join('')
-        .toUpperCase()
-        .slice(0, 2);
+    const email = user?.email?.trim();
+    if (email) {
+      return email.split('@')[0] || email;
     }
-    if (user?.email) {
-      return user.email[0].toUpperCase();
+
+    return 'User';
+  }, [user?.fullName, user?.email]);
+
+  const initials = useMemo(() => {
+    const fullName = user?.fullName?.trim();
+    if (fullName) {
+      const tokens = fullName
+        .split(/\s+/)
+        .filter(Boolean)
+        .slice(0, 2)
+        .map((name) => name.charAt(0).toUpperCase())
+        .join('');
+      if (tokens) {
+        return tokens;
+      }
     }
-    return 'U';
-  };
+
+    const email = user?.email?.trim();
+    if (email && email.length > 0) {
+      return email.charAt(0).toUpperCase();
+    }
+
+    return displayName.charAt(0).toUpperCase() || 'U';
+  }, [displayName, user?.fullName, user?.email]);
+
+  const planLabel = useMemo(() => {
+    if (!user?.plan) {
+      return 'Free';
+    }
+    return user.plan.charAt(0) + user.plan.slice(1).toLowerCase();
+  }, [user?.plan]);
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -91,12 +109,12 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
                 <Avatar className="h-8 w-8">
                   <AvatarImage src="" />
                   <AvatarFallback className="text-sm font-semibold">
-                    {getUserInitials()}
+                    {initials}
                   </AvatarFallback>
                 </Avatar>
                 <div className="flex flex-col items-start">
-                  <span className="text-sm font-medium">{getUserDisplayName()}</span>
-                  <span className="text-xs text-muted-foreground">{user?.plan || 'Free'}</span>
+                  <span className="text-sm font-medium">{displayName}</span>
+                  <span className="text-xs text-muted-foreground">{planLabel}</span>
                 </div>
               </Button>
             </DropdownMenuTrigger>

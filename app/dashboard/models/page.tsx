@@ -27,15 +27,45 @@ import {
   Server,
   Cloud,
   Monitor,
-  Sparkles
+  Sparkles,
+  Wind
 } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
-import { EXPANDED_MODELS, MODEL_CATEGORIES, PROVIDER_INFO } from '@/lib/comprehensive-models';
-import { ModelConfig } from '@/lib/ai-routing';
+import { COMPREHENSIVE_MODELS, ModelConfig } from '@/lib/ai-routing';
+
+// Create simplified categories for the UI
+const MODEL_CATEGORIES = {
+  'text_generation': 'Text Generation',
+  'code_generation': 'Code Generation', 
+  'image_generation': 'Image Generation',
+  'multimodal': 'Multimodal',
+  'open_source': 'Open Source',
+  'free_tier': 'Free Tier'
+};
+
+const PROVIDER_INFO = {
+  'openai': { name: 'OpenAI' },
+  'anthropic': { name: 'Anthropic' },
+  'google': { name: 'Google' },
+  'cohere': { name: 'Cohere' },
+  'mistral': { name: 'Mistral' },
+  'huggingface': { name: 'Hugging Face' },
+  'groq': { name: 'Groq' },
+  'together': { name: 'Together AI' },
+  'deepinfra': { name: 'DeepInfra' },
+  'replicate': { name: 'Replicate' },
+  'openrouter': { name: 'OpenRouter' },
+  'perplexity': { name: 'Perplexity' },
+  'fireworks': { name: 'Fireworks' },
+  'stability': { name: 'Stability AI' },
+  'ollama': { name: 'Ollama' },
+  'custom': { name: 'Custom' },
+  'local': { name: 'Local' }
+};
 
 export default function ModelsPage() {
-  const [models, setModels] = useState<ModelConfig[]>(EXPANDED_MODELS);
-  const [filteredModels, setFilteredModels] = useState<ModelConfig[]>(EXPANDED_MODELS);
+  const [models, setModels] = useState<ModelConfig[]>(COMPREHENSIVE_MODELS);
+  const [filteredModels, setFilteredModels] = useState<ModelConfig[]>(COMPREHENSIVE_MODELS);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [selectedProvider, setSelectedProvider] = useState<string>('all');
@@ -71,8 +101,26 @@ export default function ModelsPage() {
     }
 
     if (selectedCategory !== 'all') {
-      const categoryModels = MODEL_CATEGORIES[selectedCategory as keyof typeof MODEL_CATEGORIES] || [];
-      filtered = filtered.filter(model => categoryModels.includes(model.id));
+      switch (selectedCategory) {
+        case 'text_generation':
+          filtered = filtered.filter(model => !model.supportsImages && !model.supportsVision);
+          break;
+        case 'code_generation':
+          filtered = filtered.filter(model => model.supportsCode);
+          break;
+        case 'image_generation':
+          filtered = filtered.filter(model => model.supportsImages);
+          break;
+        case 'multimodal':
+          filtered = filtered.filter(model => model.supportsVision || model.supportsAudio || model.supportsVideo);
+          break;
+        case 'open_source':
+          filtered = filtered.filter(model => model.isOpenSource);
+          break;
+        case 'free_tier':
+          filtered = filtered.filter(model => model.costPer1kInput === 0 || model.provider === 'ollama' || model.provider === 'huggingface');
+          break;
+      }
     }
 
     setFilteredModels(filtered);
@@ -80,13 +128,24 @@ export default function ModelsPage() {
 
   const getProviderIcon = (provider: string) => {
     switch (provider) {
-      case 'openai': return <Brain className="h-4 w-4" />;
-      case 'anthropic': return <Brain className="h-4 w-4" />;
-      case 'google': return <Globe className="h-4 w-4" />;
-      case 'huggingface': return <Code className="h-4 w-4" />;
-      case 'custom': return <Server className="h-4 w-4" />;
-      case 'ollama': return <Monitor className="h-4 w-4" />;
-      default: return <Cloud className="h-4 w-4" />;
+      case 'openai': return <Brain className="h-4 w-4 text-green-600" />;
+      case 'anthropic': return <Brain className="h-4 w-4 text-orange-600" />;
+      case 'google': return <Globe className="h-4 w-4 text-blue-600" />;
+      case 'huggingface': return <Code className="h-4 w-4 text-yellow-600" />;
+      case 'groq': return <Zap className="h-4 w-4 text-purple-600" />;
+      case 'together': return <Activity className="h-4 w-4 text-indigo-600" />;
+      case 'deepinfra': return <Server className="h-4 w-4 text-emerald-600" />;
+      case 'replicate': return <ImageIcon className="h-4 w-4 text-pink-600" />;
+      case 'openrouter': return <Globe className="h-4 w-4 text-slate-600" />;
+      case 'perplexity': return <Search className="h-4 w-4 text-teal-600" />;
+      case 'cohere': return <Brain className="h-4 w-4 text-blue-500" />;
+      case 'mistral': return <Wind className="h-4 w-4 text-red-600" />;
+      case 'fireworks': return <Sparkles className="h-4 w-4 text-orange-500" />;
+      case 'stability': return <ImageIcon className="h-4 w-4 text-violet-600" />;
+      case 'custom': return <Server className="h-4 w-4 text-gray-600" />;
+      case 'ollama': return <Monitor className="h-4 w-4 text-blue-700" />;
+      case 'local': return <Monitor className="h-4 w-4 text-gray-700" />;
+      default: return <Cloud className="h-4 w-4 text-gray-500" />;
     }
   };
 
@@ -131,9 +190,12 @@ export default function ModelsPage() {
               <p className="text-sm text-muted-foreground capitalize">{model.provider}</p>
             </div>
           </div>
-          <div className="flex gap-1">
+          <div className="flex gap-1 flex-wrap">
             {model.isOpenSource && <Badge variant="secondary">Open Source</Badge>}
+            {model.costPer1kInput === 0 && <Badge variant="default" className="bg-green-600">Free</Badge>}
+            {model.costPer1kInput > 0 && model.costPer1kInput <= 0.1 && <Badge variant="default" className="bg-blue-600">Cheap</Badge>}
             {model.requiresGPU && <Badge variant="outline">GPU</Badge>}
+            {(model.provider === 'groq' || model.provider === 'deepinfra') && <Badge variant="outline" className="text-purple-600 border-purple-600">Fast</Badge>}
           </div>
         </div>
       </CardHeader>
@@ -400,11 +462,11 @@ export default function ModelsPage() {
             </div>
             <div className="flex items-start gap-3">
               <div className="p-2 bg-orange-100 rounded-lg">
-                <Brain className="h-5 w-5 text-orange-600" />
+                <Zap className="h-5 w-5 text-orange-600" />
               </div>
               <div>
-                <h4 className="font-semibold">HuggingFace Integration</h4>
-                <p className="text-sm text-muted-foreground">Access thousands of open-source models for specialized tasks like translation, summarization, and more</p>
+                <h4 className="font-semibold">Open Source & Free Models</h4>
+                <p className="text-sm text-muted-foreground">Access HuggingFace, Groq, DeepInfra, and local Ollama models. Some with free tiers, others from $0.08/1M tokens</p>
               </div>
             </div>
           </div>

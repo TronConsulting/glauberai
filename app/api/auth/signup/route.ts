@@ -18,6 +18,6 @@ export async function POST(req: NextRequest) {
   });
   // Set JWT cookie
   const token = await signJwt({ id: user.id, email: user.email, fullName: user.fullName });
-  setAuthCookie(token);
+  await setAuthCookie(token);
   return NextResponse.json({ id: user.id, email: user.email, fullName: user.fullName });
 }

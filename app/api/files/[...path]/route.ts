@@ -5,11 +5,11 @@ import { getAuthCookie, verifyJwt } from '@/lib/auth';
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { path: string[] } }
+  { params }: { params: Promise<{ path: string[] }> }
 ) {
   try {
     // Verify authentication
-    const token = getAuthCookie();
+    const token = await getAuthCookie();
     if (!token) {
       return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
     }
@@ -19,8 +19,14 @@ export async function GET(
       return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
     }
 
-    // Decode the file path
-    const filePath = params.path.map(segment => decodeURIComponent(segment)).join('/');
+    const userId = typeof decoded === 'object' && 'id' in decoded ? String(decoded.id) : null;
+    if (!userId) {
+      return NextResponse.json({ error: 'Invalid token payload' }, { status: 401 });
+    }
+
+    // Await params and decode the file path
+    const resolvedParams = await params;
+    const filePath = resolvedParams.path.map(segment => decodeURIComponent(segment)).join('/');
     
     // Security check: ensure the file is within the uploads directory
     if (!filePath.startsWith('uploads/')) {
@@ -28,7 +34,7 @@ export async function GET(
     }
 
     // Additional security: ensure user can only access their own files
-    if (!filePath.includes(`/${decoded.userId}/`)) {
+    if (!filePath.includes(`/${userId}/`)) {
       return NextResponse.json({ error: 'Access denied' }, { status: 403 });
     }
 

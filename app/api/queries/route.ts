@@ -4,7 +4,7 @@ import { prisma } from '@/lib/prisma';
 import { sophisticatedAIRouter } from '@/lib/ai-routing';
 
 export async function GET(req: NextRequest) {
-  const token = getAuthCookie();
+  const token = await getAuthCookie();
   if (!token) {
     return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
   }
@@ -14,11 +14,16 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
   }
 
+  const userId = typeof decoded === 'object' && 'id' in decoded ? String(decoded.id) : null;
+  if (!userId) {
+    return NextResponse.json({ error: 'Invalid token payload' }, { status: 401 });
+  }
+
   try {
     // Fetch user's recent requests from the database
     const requests = await prisma.request.findMany({
       where: {
-        userId: decoded.userId
+        userId
       },
       orderBy: {
         createdAt: 'desc'

@@ -4,7 +4,7 @@ import { prisma } from '@/lib/prisma';
 
 export const dynamic = "force-dynamic";
 export async function GET(req: NextRequest) {
-  const token = getAuthCookie();
+  const token = await getAuthCookie();
   if (!token) {
     return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
   }
@@ -14,9 +14,14 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
   }
 
+  const userId = typeof decoded === 'object' && 'id' in decoded ? String(decoded.id) : null;
+  if (!userId) {
+    return NextResponse.json({ error: 'Invalid token payload' }, { status: 401 });
+  }
+
   try {
     const user = await prisma.user.findUnique({
-      where: { id: decoded.id as string },
+      where: { id: userId },
       select: {
         id: true,
         email: true,

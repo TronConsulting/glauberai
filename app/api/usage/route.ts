@@ -3,7 +3,7 @@ import { getAuthCookie, verifyJwt } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 
 export async function GET(req: NextRequest) {
-  const token = getAuthCookie();
+  const token = await getAuthCookie();
   if (!token) {
     return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
   }
@@ -13,14 +13,18 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
   }
 
+  const userId = typeof decoded === 'object' && 'id' in decoded ? String(decoded.id) : null;
+  if (!userId) {
+    return NextResponse.json({ error: 'Invalid token payload' }, { status: 401 });
+  }
+
   try {
     // Get user and their requests for this month
     const user = await prisma.user.findUnique({
-      where: { id: decoded.userId },
+      where: { id: userId },
       select: {
         id: true,
         email: true,
-        password: true,
         fullName: true,
         plan: true,
         createdAt: true,
@@ -59,8 +63,10 @@ export async function GET(req: NextRequest) {
       tokensUsed,
       planLimit,
       remainingTokens,
-      usagePercentage,
+      usagePercentage: isUnlimited || planLimit === -1 ? 0 : usagePercentage,
       isUnlimited,
+      currentUsage: tokensUsed,
+      remainingRequests: isUnlimited ? -1 : remainingTokens,
       plan: {
         name: user.plan,
         tokens: planLimit,

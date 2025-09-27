@@ -22,6 +22,7 @@ import {
 import { toast } from '@/hooks/use-toast';
 
 export default function SettingsPage() {
+  const [activeTab, setActiveTab] = useState("api");
   const [showApiKey, setShowApiKey] = useState(false);
   const [notifications, setNotifications] = useState({
     email: true,
@@ -49,7 +50,7 @@ export default function SettingsPage() {
             <p className="text-muted-foreground">Manage your account settings and preferences</p>
           </div>
 
-          <Tabs defaultValue="api" className="space-y-6">
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
             <TabsList className="grid w-full grid-cols-3">
               <TabsTrigger value="api">API Keys</TabsTrigger>
               <TabsTrigger value="notifications">Notifications</TabsTrigger>
@@ -225,4 +226,6 @@ export default function SettingsPage() {
         </div>
     </div>
   );
-} 
+}
+
+ 

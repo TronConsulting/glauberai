@@ -30,18 +30,21 @@ export async function verifyJwt(token: string): Promise<any | null> {
   }
 }
 
-export function setAuthCookie(token: string) {
-  cookies().set({
+export async function setAuthCookie(token: string) {
+  const cookieStore = await cookies();
+  cookieStore.set({
     name: COOKIE_NAME,
     value: token,
     ...COOKIE_OPTIONS,
   });
 }
 
-export function getAuthCookie(): string | null {
-  return cookies().get(COOKIE_NAME)?.value || null;
+export async function getAuthCookie(): Promise<string | null> {
+  const cookieStore = await cookies();
+  return cookieStore.get(COOKIE_NAME)?.value || null;
 }
 
-export function clearAuthCookie() {
-  cookies().delete(COOKIE_NAME);
+export async function clearAuthCookie() {
+  const cookieStore = await cookies();
+  cookieStore.delete(COOKIE_NAME);
 } 

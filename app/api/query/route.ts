@@ -160,11 +160,11 @@ export async function POST(req: NextRequest) {
 
     // Calculate usage based on plan
     const planTokenLimits: Record<string, number> = {
-      STARTER: 1000,
+      STARTER: 10000,
       PROFESSIONAL: 1000000,
       ENTERPRISE: -1 // Unlimited
     };
-    const planLimit = planTokenLimits[user.plan] || 1000;
+    const planLimit = planTokenLimits[user.plan] || 10000;
     const isUnlimited = user.plan === 'ENTERPRISE';
     const usagePercentage = isUnlimited || planLimit === -1 ? 0 : (tokensUsed / planLimit) * 100;
     const remainingTokens = isUnlimited || planLimit === -1 ? -1 : Math.max(0, planLimit - tokensUsed);
@@ -172,7 +172,7 @@ export async function POST(req: NextRequest) {
     // Check if user has exceeded their token limit
     if (!isUnlimited && tokensUsed >= planLimit) {
       return NextResponse.json({
-        error: `You've reached your monthly limit of ${planLimit} tokens. Please upgrade your plan to continue.`,
+        error: `You've reached your monthly limit of ${planLimit.toLocaleString()} tokens. Please upgrade your plan to continue.`,
         usage: {
           tokensUsed,
           planLimit,

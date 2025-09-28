@@ -50,11 +50,11 @@ export async function GET(req: NextRequest) {
 
     // Calculate usage based on plan
     const planTokenLimits: Record<string, number> = {
-      STARTER: 1000,
+      STARTER: 10000,
       PROFESSIONAL: 1000000,
       ENTERPRISE: -1 // Unlimited
     };
-    const planLimit = planTokenLimits[user.plan] || 1000;
+    const planLimit = planTokenLimits[user.plan] || 10000;
     const isUnlimited = user.plan === 'ENTERPRISE';
     const usagePercentage = isUnlimited ? 0 : (tokensUsed / planLimit) * 100;
     const remainingTokens = isUnlimited ? -1 : Math.max(0, planLimit - tokensUsed);
@@ -72,7 +72,7 @@ export async function GET(req: NextRequest) {
         tokens: planLimit,
         price: user.plan === 'PROFESSIONAL' ? 39 : 0,
         features: user.plan === 'STARTER' ? [
-          'Up to 1,000 tokens/month',
+          'Up to 10,000 tokens/month',
           'Smart AI routing',
           'All AI models',
           'Standard support',

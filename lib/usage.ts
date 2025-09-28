@@ -1,10 +1,10 @@
 export const PLAN_LIMITS = {
   STARTER: {
     name: 'Starter',
-    tokens: 1000,
+    tokens: 10000,
     price: 0,
     features: [
-      'Up to 1,000 tokens/month',
+      'Up to 10,000 tokens/month',
       'Smart AI routing',
       'All AI models',
       'Standard support',

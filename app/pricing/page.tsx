@@ -38,15 +38,15 @@ export default function PricingPage() {
   const plans = [
     {
       name: 'Starter',
-      description: 'Perfect for trying out GlauberAI',
+      description: 'Perfect for getting started with AI - now with 10x more tokens!',
       price: { monthly: 0, annual: 0 },
-      requests: '1,000',
+      requests: '10,000',
       icon: Zap,
       popular: false,
       features: [
-        'Up to 1,000 requests/month',
-        'Basic AI routing',
-        '3 AI models (GPT-3.5, Claude Haiku, Gemini)',
+        'Up to 10,000 tokens/month',
+        'Smart AI routing to 15+ models',
+        'Free & open source models (Groq, HuggingFace, DeepInfra)',
         'Standard support',
         'Basic analytics',
         'API access'

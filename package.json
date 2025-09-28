@@ -59,7 +59,7 @@
     "framer-motion": "^11.0.0",
     "glob": "^10.3.10",
     "input-otp": "^1.2.4",
-    "jose": "^6.0.11",
+    "jose": "^6.1.0",
     "jsonwebtoken": "^9.0.2",
     "lru-cache": "^10.2.1",
     "lucide-react": "^0.446.0",

@@ -840,7 +840,7 @@ export const SOPHISTICATED_ROUTING_RULES: RoutingRule[] = [
     confidence: 0.85
   },
 
-  // Complex Reasoning Rules
+  // Complex Reasoning Rules - using working providers
   {
     id: 'complex-reasoning',
     name: 'Complex Reasoning Tasks',
@@ -849,7 +849,7 @@ export const SOPHISTICATED_ROUTING_RULES: RoutingRule[] = [
       complexity: 'complex',
       contentType: 'reasoning'
     },
-    targetModel: 'claude-3-opus',
+    targetModel: 'openai-gpt-oss-120b',
     priority: 12,
     confidence: 0.95
   },
@@ -860,12 +860,12 @@ export const SOPHISTICATED_ROUTING_RULES: RoutingRule[] = [
       keywords: ['solve', 'calculate', 'equation', 'formula', 'mathematics', 'math', 'algebra', 'calculus'],
       contentType: 'math'
     },
-    targetModel: 'gpt-4-turbo',
+    targetModel: 'openai-gpt-oss-120b',
     priority: 11,
     confidence: 0.9
   },
 
-  // Code Generation Rules
+  // Code Generation Rules - using working providers
   {
     id: 'complex-coding',
     name: 'Complex Code Generation',
@@ -874,7 +874,7 @@ export const SOPHISTICATED_ROUTING_RULES: RoutingRule[] = [
       contentType: 'code',
       complexity: 'complex'
     },
-    targetModel: 'gpt-4-turbo',
+    targetModel: 'openrouter-mixtral-8x7b',
     priority: 10,
     confidence: 0.9
   },
@@ -886,12 +886,12 @@ export const SOPHISTICATED_ROUTING_RULES: RoutingRule[] = [
       contentType: 'code',
       complexity: 'simple'
     },
-    targetModel: 'gpt-3.5-turbo',
+    targetModel: 'openrouter-llama-3-8b',
     priority: 8,
     confidence: 0.85
   },
 
-  // Creative Writing Rules
+  // Creative Writing Rules - using working providers
   {
     id: 'creative-writing',
     name: 'Creative Writing',
@@ -899,12 +899,12 @@ export const SOPHISTICATED_ROUTING_RULES: RoutingRule[] = [
       keywords: ['write', 'story', 'creative', 'poem', 'article', 'blog', 'content', 'narrative'],
       contentType: 'creative'
     },
-    targetModel: 'claude-3-sonnet',
+    targetModel: 'openai-gpt-oss-120b',
     priority: 9,
     confidence: 0.9
   },
 
-  // Analysis Rules
+  // Analysis Rules - using working providers
   {
     id: 'document-analysis',
     name: 'Document Analysis',
@@ -913,12 +913,12 @@ export const SOPHISTICATED_ROUTING_RULES: RoutingRule[] = [
       queryLength: { min: 200 },
       contentType: 'analysis'
     },
-    targetModel: 'claude-3-sonnet',
+    targetModel: 'openai-gpt-oss-120b',
     priority: 9,
     confidence: 0.85
   },
 
-  // Vision Tasks
+  // Vision Tasks - using working providers (limited vision support)
   {
     id: 'vision-analysis',
     name: 'Vision Analysis',
@@ -926,7 +926,7 @@ export const SOPHISTICATED_ROUTING_RULES: RoutingRule[] = [
       keywords: ['image', 'photo', 'picture', 'visual', 'see', 'look', 'describe'],
       contentType: 'image'
     },
-    targetModel: 'gpt-4o',
+    targetModel: 'replicate-sdxl',
     priority: 12,
     confidence: 0.95
   },
@@ -936,12 +936,12 @@ export const SOPHISTICATED_ROUTING_RULES: RoutingRule[] = [
     conditions: {
       contentType: 'image'
     },
-    targetModel: 'gpt-4o',
+    targetModel: 'replicate-sdxl',
     priority: 13,
     confidence: 0.98
   },
 
-  // Multilingual Tasks
+  // Multilingual Tasks - using working providers
   {
     id: 'multilingual',
     name: 'Multilingual Tasks',
@@ -949,12 +949,12 @@ export const SOPHISTICATED_ROUTING_RULES: RoutingRule[] = [
       language: ['spanish', 'french', 'german', 'chinese', 'japanese', 'korean', 'arabic'],
       contentType: 'translation'
     },
-    targetModel: 'gemini-pro',
+    targetModel: 'openrouter-mixtral-8x7b',
     priority: 8,
     confidence: 0.9
   },
 
-  // Tool Use
+  // Tool Use - using working providers
   {
     id: 'tool-use',
     name: 'Tool Use Tasks',
@@ -962,12 +962,12 @@ export const SOPHISTICATED_ROUTING_RULES: RoutingRule[] = [
       keywords: ['tool', 'function', 'api', 'integration', 'automate'],
       contentType: 'code'
     },
-    targetModel: 'command-r-plus',
+    targetModel: 'openrouter-llama-3-8b',
     priority: 10,
     confidence: 0.85
   },
 
-  // Long Context
+  // Long Context - using working providers
   {
     id: 'long-context',
     name: 'Long Context Tasks',
@@ -975,12 +975,12 @@ export const SOPHISTICATED_ROUTING_RULES: RoutingRule[] = [
       queryLength: { min: 1000 },
       contentType: 'analysis'
     },
-    targetModel: 'claude-3-sonnet',
+    targetModel: 'openrouter-mixtral-8x7b',
     priority: 9,
     confidence: 0.8
   },
 
-  // Cost-Sensitive Tasks
+  // Cost-Sensitive Tasks - using free models
   {
     id: 'cost-sensitive',
     name: 'Cost-Sensitive Tasks',
@@ -989,7 +989,7 @@ export const SOPHISTICATED_ROUTING_RULES: RoutingRule[] = [
       complexity: 'simple',
       urgency: 'low'
     },
-    targetModel: 'claude-3-haiku',
+    targetModel: 'hf-gpt2',
     priority: 5,
     confidence: 0.8
   },
@@ -1007,7 +1007,7 @@ export const SOPHISTICATED_ROUTING_RULES: RoutingRule[] = [
     confidence: 0.9
   },
 
-  // Ultra-cheap alternatives
+  // Ultra-cheap alternatives - using working cheap providers
   {
     id: 'ultra-cheap',
     name: 'Ultra-cheap alternatives',
@@ -1015,19 +1015,19 @@ export const SOPHISTICATED_ROUTING_RULES: RoutingRule[] = [
       keywords: ['cheap', 'budget', 'affordable', 'low cost'],
       complexity: 'medium'
     },
-    targetModel: 'deepinfra-meta-llama-3.1-8b-instruct',
+    targetModel: 'openrouter-llama-3-8b',
     priority: 7,
     confidence: 0.85
   },
 
-  // Open Source Model Rules
+  // Open Source Model Rules - using working providers
   {
     id: 'open-source-preference',
     name: 'Open Source Preference',
     conditions: {
       keywords: ['open source', 'open-source', 'free', 'local', 'privacy', 'offline'],
     },
-    targetModel: 'together-llama-2-70b',
+    targetModel: 'hf-gpt2',
     priority: 8,
     confidence: 0.9
   },
@@ -1038,7 +1038,7 @@ export const SOPHISTICATED_ROUTING_RULES: RoutingRule[] = [
       keywords: ['fast', 'quick', 'speed', 'real-time', 'instant', 'rapid'],
       urgency: 'high'
     },
-    targetModel: 'groq-llama2-70b',
+    targetModel: 'openrouter-llama-3-8b',
     priority: 9,
     confidence: 0.85
   },
@@ -1049,7 +1049,7 @@ export const SOPHISTICATED_ROUTING_RULES: RoutingRule[] = [
       keywords: ['cheap', 'affordable', 'cost', 'budget', 'economical'],
       complexity: 'simple'
     },
-    targetModel: 'replicate-llama-2-13b',
+    targetModel: 'hf-gpt2',
     priority: 7,
     confidence: 0.8
   },
@@ -1060,7 +1060,7 @@ export const SOPHISTICATED_ROUTING_RULES: RoutingRule[] = [
       queryLength: { min: 2000 },
       keywords: ['document', 'long', 'analyze', 'review']
     },
-    targetModel: 'together-mixtral-8x7b',
+    targetModel: 'openrouter-mixtral-8x7b',
     priority: 8,
     confidence: 0.85
   },
@@ -1071,7 +1071,7 @@ export const SOPHISTICATED_ROUTING_RULES: RoutingRule[] = [
       keywords: ['code', 'programming', 'debug', 'function', 'algorithm'],
       contentType: 'code'
     },
-    targetModel: 'openrouter-code-llama',
+    targetModel: 'openrouter-llama-3-8b',
     priority: 9,
     confidence: 0.9
   },
@@ -1287,7 +1287,7 @@ export class SophisticatedAIRouter {
     return 'neutral';
   }
 
-  private determineUrgency(query: string, keywords: string[]): 'low' | 'medium' | 'high' {
+  private determineUrgency(query: string, _keywords: string[]): 'low' | 'medium' | 'high' {
     const urgentWords = ['urgent', 'asap', 'quick', 'fast', 'immediate', 'emergency'];
     const queryLower = query.toLowerCase();
     
@@ -1296,7 +1296,7 @@ export class SophisticatedAIRouter {
     return 'low';
   }
 
-  private calculateConfidence(query: string, keywords: string[], complexity: string, contentType: string): number {
+  private calculateConfidence(_query: string, keywords: string[], complexity: string, contentType: string): number {
     let confidence = 0.5; // Base confidence
     
     // Increase confidence based on keyword specificity

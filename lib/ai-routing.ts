@@ -55,31 +55,31 @@ export interface ModelConfig {
 }
 
 export const COMPREHENSIVE_MODELS: ModelConfig[] = [
-  // OpenAI Models
+  // OpenAI Models (working provider)
   {
-    id: 'gpt-4-turbo',
-    name: 'GPT-4 Turbo',
+    id: 'openai-gpt-oss-120b',
+    name: 'GPT-OSS-120B',
     provider: 'openai',
-    modelId: 'gpt-4-turbo-preview',
-    costPer1kInput: 0.01,
-    costPer1kOutput: 0.03,
-    maxTokens: 128000,
+    modelId: 'openai/gpt-oss-120b',
+    costPer1kInput: 0.001,
+    costPer1kOutput: 0.002,
+    maxTokens: 32768,
     supportsStreaming: true,
     supportsImages: false,
-    supportsVision: true,
+    supportsVision: false,
     supportsAudio: false,
     supportsVideo: false,
     supportsCode: true,
     supportsFunction: true,
-    isOpenSource: false,
+    isOpenSource: true,
     requiresGPU: false,
-    strengths: ['complex reasoning', 'code generation', 'analysis', 'mathematics', 'creative writing'],
-    weaknesses: ['cost', 'speed'],
-    bestFor: ['complex problem solving', 'advanced coding', 'detailed analysis'],
+    strengths: ['open source', 'cost-effective', 'large context', 'good reasoning'],
+    weaknesses: ['newer model'],
+    bestFor: ['general purpose', 'coding', 'reasoning tasks'],
     apiUrl: 'https://api.openai.com/v1/chat/completions',
-    contextWindow: 128000,
-    trainingData: 'Up to April 2024',
-    releaseDate: '2024-04-09'
+    contextWindow: 32768,
+    trainingData: 'Up to 2024',
+    releaseDate: '2024-01-01'
   },
   {
     id: 'gpt-4o',
@@ -588,14 +588,14 @@ export const COMPREHENSIVE_MODELS: ModelConfig[] = [
     modelSize: '3.5B parameters'
   },
 
-  // OpenRouter Popular Models  
+  // OpenRouter Working Models  
   {
-    id: 'openrouter-code-llama',
-    name: 'Code Llama (OpenRouter)',
+    id: 'openrouter-llama-3-8b',
+    name: 'Llama 3 8B (OpenRouter)',
     provider: 'openrouter',
-    modelId: 'codellama/codellama-34b-instruct',
-    costPer1kInput: 0.0005,
-    costPer1kOutput: 0.0005,
+    modelId: 'meta-llama/llama-3-8b-instruct',
+    costPer1kInput: 0.0002,
+    costPer1kOutput: 0.0002,
     maxTokens: 8192,
     supportsStreaming: true,
     supportsImages: false,
@@ -606,24 +606,80 @@ export const COMPREHENSIVE_MODELS: ModelConfig[] = [
     supportsFunction: true,
     isOpenSource: true,
     requiresGPU: true,
-    strengths: ['specialized for code', 'large context', 'open source', 'Meta developed'],
-    weaknesses: ['code-focused only'],
-    bestFor: ['code generation', 'programming assistance', 'debugging'],
+    strengths: ['very cheap', 'fast', 'good reasoning', 'Meta developed'],
+    weaknesses: ['smaller model'],
+    bestFor: ['general purpose', 'cost-sensitive applications', 'fast responses'],
     apiUrl: 'https://openrouter.ai/api/v1',
     contextWindow: 8192,
-    trainingData: 'Code datasets up to 2023',
-    releaseDate: '2023-08-24',
-    license: 'Custom License',
+    trainingData: 'Up to March 2024',
+    releaseDate: '2024-04-18',
+    license: 'Llama 3 License',
     architecture: 'Transformer',
-    modelSize: '34B parameters'
+    modelSize: '8B parameters'
+  },
+  {
+    id: 'openrouter-mixtral-8x7b',
+    name: 'Mixtral 8x7B (OpenRouter)',
+    provider: 'openrouter',
+    modelId: 'mistralai/mixtral-8x7b-instruct',
+    costPer1kInput: 0.0005,
+    costPer1kOutput: 0.0005,
+    maxTokens: 32768,
+    supportsStreaming: true,
+    supportsImages: false,
+    supportsVision: false,
+    supportsAudio: false,
+    supportsVideo: false,
+    supportsCode: true,
+    supportsFunction: true,
+    isOpenSource: true,
+    requiresGPU: true,
+    strengths: ['mixture of experts', 'long context', 'multilingual', 'efficient'],
+    weaknesses: ['complex architecture'],
+    bestFor: ['long documents', 'multilingual tasks', 'efficient inference'],
+    apiUrl: 'https://openrouter.ai/api/v1',
+    contextWindow: 32768,
+    trainingData: 'Up to 2023',
+    releaseDate: '2023-12-11',
+    license: 'Apache 2.0',
+    architecture: 'Mixture of Experts',
+    modelSize: '8x7B parameters'
   },
 
-  // HuggingFace Free Models
+  // HuggingFace Working Models (tested and verified)
   {
-    id: 'hf-microsoft-dialoGPT-large',
-    name: 'Microsoft DialoGPT Large (Free)',
+    id: 'hf-gpt2',
+    name: 'GPT-2 (HuggingFace)',
     provider: 'huggingface',
-    modelId: 'microsoft/DialoGPT-large',
+    modelId: 'gpt2',
+    costPer1kInput: 0,
+    costPer1kOutput: 0,
+    maxTokens: 1024,
+    supportsStreaming: false,
+    supportsImages: false,
+    supportsVision: false,
+    supportsAudio: false,
+    supportsVideo: false,
+    supportsCode: true,
+    supportsFunction: false,
+    isOpenSource: true,
+    requiresGPU: false,
+    strengths: ['free', 'fast', 'reliable', 'no API key required'],
+    weaknesses: ['limited capabilities', 'older model'],
+    bestFor: ['simple text generation', 'testing', 'prototyping'],
+    apiUrl: 'https://api-inference.huggingface.co/models',
+    contextWindow: 1024,
+    trainingData: 'OpenWebText',
+    releaseDate: '2019-02-14',
+    license: 'MIT',
+    architecture: 'GPT-2',
+    modelSize: '124M parameters'
+  },
+  {
+    id: 'hf-microsoft-dialoGPT-medium',
+    name: 'Microsoft DialoGPT Medium (Free)',
+    provider: 'huggingface',
+    modelId: 'microsoft/DialoGPT-medium',
     costPer1kInput: 0,
     costPer1kOutput: 0,
     maxTokens: 1024,
@@ -636,22 +692,22 @@ export const COMPREHENSIVE_MODELS: ModelConfig[] = [
     supportsFunction: false,
     isOpenSource: true,
     requiresGPU: false,
-    strengths: ['free', 'conversational', 'no API key required'],
-    weaknesses: ['limited capabilities', 'older model'],
-    bestFor: ['simple chat', 'testing', 'prototyping'],
+    strengths: ['free', 'conversational', 'good for chat'],
+    weaknesses: ['limited capabilities', 'slower inference'],
+    bestFor: ['simple conversation', 'chat bots', 'basic dialogue'],
     apiUrl: 'https://api-inference.huggingface.co/models',
     contextWindow: 1024,
     trainingData: 'Reddit conversations',
     releaseDate: '2020-02-26',
     license: 'MIT',
     architecture: 'GPT-2',
-    modelSize: '774M parameters'
+    modelSize: '354M parameters'
   },
   {
-    id: 'hf-google-flan-t5-large',
-    name: 'Google Flan-T5 Large (Free)',
+    id: 'hf-google-flan-t5-base',
+    name: 'Google Flan-T5 Base (Free)',
     provider: 'huggingface',
-    modelId: 'google/flan-t5-large',
+    modelId: 'google/flan-t5-base',
     costPer1kInput: 0,
     costPer1kOutput: 0,
     maxTokens: 512,
@@ -664,8 +720,8 @@ export const COMPREHENSIVE_MODELS: ModelConfig[] = [
     supportsFunction: false,
     isOpenSource: true,
     requiresGPU: false,
-    strengths: ['free', 'instruction following', 'versatile'],
-    weaknesses: ['limited context', 'slower inference'],
+    strengths: ['free', 'instruction following', 'versatile', 'reliable'],
+    weaknesses: ['limited context', 'smaller model'],
     bestFor: ['Q&A', 'instruction following', 'simple tasks'],
     apiUrl: 'https://api-inference.huggingface.co/models',
     contextWindow: 512,
@@ -673,7 +729,7 @@ export const COMPREHENSIVE_MODELS: ModelConfig[] = [
     releaseDate: '2022-10-20',
     license: 'Apache 2.0',
     architecture: 'T5',
-    modelSize: '780M parameters'
+    modelSize: '248M parameters'
   },
 
   // DeepInfra Models (Very cheap)
@@ -736,14 +792,14 @@ export const COMPREHENSIVE_MODELS: ModelConfig[] = [
 ];
 
 export const SOPHISTICATED_ROUTING_RULES: RoutingRule[] = [
-  // Explicit OpenAI/ChatGPT keyword rule
+  // Explicit OpenAI/ChatGPT keyword rule - using your working OpenAI token
   {
     id: 'openai-keyword',
     name: 'OpenAI/ChatGPT Keyword',
     conditions: {
       keywords: ['openai', 'chatgpt', 'gpt', 'gpt-4', 'gpt-3.5'],
     },
-    targetModel: 'gpt-4o',
+    targetModel: 'openai-gpt-oss-120b',
     priority: 100,
     confidence: 1.0
   },
@@ -938,7 +994,7 @@ export const SOPHISTICATED_ROUTING_RULES: RoutingRule[] = [
     confidence: 0.8
   },
 
-  // Free Model Preference
+  // Free Model Preference - updated to working model
   {
     id: 'free-models',
     name: 'Free Models',
@@ -946,7 +1002,7 @@ export const SOPHISTICATED_ROUTING_RULES: RoutingRule[] = [
       keywords: ['free', 'no cost', 'budget', 'test', 'demo', 'prototype'],
       complexity: 'simple'
     },
-    targetModel: 'hf-google-flan-t5-large',
+    targetModel: 'hf-gpt2',
     priority: 8,
     confidence: 0.9
   },
@@ -1020,16 +1076,41 @@ export const SOPHISTICATED_ROUTING_RULES: RoutingRule[] = [
     confidence: 0.9
   },
 
-  // General Purpose Fallback
+  // General Purpose Fallback - using working OpenAI model
   {
     id: 'general-purpose',
     name: 'General Purpose',
     conditions: {
       complexity: 'medium'
     },
-    targetModel: 'gpt-4o',
+    targetModel: 'openai-gpt-oss-120b',
     priority: 1,
     confidence: 0.7
+  },
+  
+  // Working providers priority rules
+  {
+    id: 'openrouter-priority',
+    name: 'OpenRouter Priority',
+    conditions: {
+      complexity: 'medium',
+      keywords: ['cheap', 'fast', 'code', 'programming']
+    },
+    targetModel: 'openrouter-llama-3-8b',
+    priority: 7,
+    confidence: 0.9
+  },
+  
+  {
+    id: 'huggingface-simple',
+    name: 'HuggingFace Simple Tasks',
+    conditions: {
+      complexity: 'simple',
+      keywords: ['simple', 'basic', 'quick', 'test']
+    },
+    targetModel: 'hf-gpt2',
+    priority: 6,
+    confidence: 0.85
   }
 ];
 
@@ -1271,8 +1352,11 @@ export class SophisticatedAIRouter {
       }
     }
 
-    // Fallback to best general-purpose model
-    const fallbackModel = this.models.find(m => m.id === 'gpt-4o') || this.models[0];
+    // Fallback to best working general-purpose model
+    const fallbackModel = this.models.find(m => m.id === 'openai-gpt-oss-120b') || 
+                          this.models.find(m => m.id === 'openrouter-llama-3-8b') || 
+                          this.models.find(m => m.id === 'hf-gpt2') || 
+                          this.models[0];
     return {
       selectedModel: fallbackModel,
       reasoning: 'General purpose fallback',

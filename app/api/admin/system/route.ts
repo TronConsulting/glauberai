@@ -419,7 +419,7 @@ async function handleTestQuery(query: string, modelId?: string) {
   }
 
   try {
-    const result = await aiRouter.processQuery(query, modelId);
+    const result = await aiRouter.processQueryEnhanced(query, 'CHAT', modelId);
 
     return NextResponse.json({
       query,

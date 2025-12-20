@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAuthCookie, verifyJwt } from '@/lib/auth';
-import { openSourceModelManager } from '@/lib/opensource-models';
-import { huggingFaceClient } from '@/lib/huggingface-client';
-import { openSourceAIRouter } from '@/lib/opensource-router';
+import { enhancedModelManager } from '@/lib/enhanced-model-manager';
+import { dynamicModelRegistry } from '@/lib/dynamic-model-registry';
+import { aiRouter } from '@/lib/ai-router';
 
 // Redirect to the new opensource admin endpoint
 export async function GET(req: NextRequest) {

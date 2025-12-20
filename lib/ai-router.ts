@@ -1,6 +1,18 @@
 import { Model, ModelCategory } from './models';
 import { modelManager } from './model-manager';
 import { aiClient, AIOptions, AIResponse } from './ai-client';
+import {
+  enhancedModelManager,
+  EnhancedModelManager
+} from './enhanced-model-manager';
+import {
+  intelligentModelRouter,
+  RoutingDecision
+} from './intelligent-model-router';
+import {
+  dynamicModelRegistry,
+  DynamicModel
+} from './dynamic-model-registry';
 
 export interface QueryAnalysis {
   type: ModelCategory;
@@ -24,9 +36,14 @@ export interface RoutingResult {
 }
 
 export interface ProcessingResult extends AIResponse {
-  routing: RoutingResult;
+  routing: RoutingDecision;
   attemptedModels: string[];
   finalModel: string;
+  performance?: {
+    routingTime: number;
+    totalTime: number;
+    fallbacksUsed: number;
+  };
 }
 
 export class IntelligentAIRouter {
@@ -35,7 +52,7 @@ export class IntelligentAIRouter {
   private failureHistory = new Map<string, number>();
   private readonly MAX_RETRIES = 3;
 
-  private constructor() {}
+  private constructor() { }
 
   public static getInstance(): IntelligentAIRouter {
     if (!IntelligentAIRouter.instance) {
@@ -76,9 +93,9 @@ export class IntelligentAIRouter {
       'python', 'javascript', 'java', 'html', 'css', 'sql', 'react', 'node',
       'typescript', 'go', 'rust', 'c++', 'php', 'ruby', 'swift', 'kotlin'
     ];
-    
-    if (codeKeywords.some(kw => queryLower.includes(kw)) || 
-        codeLanguages.some(lang => queryLower.includes(lang))) {
+
+    if (codeKeywords.some(kw => queryLower.includes(kw)) ||
+      codeLanguages.some(lang => queryLower.includes(lang))) {
       type = 'CODE';
       requiresCode = true;
     }
@@ -151,7 +168,7 @@ export class IntelligentAIRouter {
    * Route query to the best available model
    */
   public routeQuery(
-    query: string, 
+    query: string,
     userPreference?: string,
     constraints: {
       maxCost?: number;
@@ -160,7 +177,7 @@ export class IntelligentAIRouter {
     } = {}
   ): RoutingResult {
     const analysis = this.analyzeQuery(query);
-    
+
     // Check cache first
     const cacheKey = `${query.slice(0, 100)}:${JSON.stringify(constraints)}`;
     const cached = this.routingCache.get(cacheKey);
@@ -216,84 +233,207 @@ export class IntelligentAIRouter {
   }
 
   /**
-   * Process query with intelligent routing and fallback
+   * Process query with intelligent routing and fallback (Enhanced Version)
    */
-  public async processQuery(
+  public async processQueryEnhanced(
     query: string,
+    category: ModelCategory = 'CHAT',
     userPreference?: string,
     constraints: {
       maxCost?: number;
       preferFree?: boolean;
       requiresSpeed?: boolean;
+      requiresVision?: boolean;
+      requiresCode?: boolean;
     } = {},
     options: AIOptions = {}
   ): Promise<ProcessingResult> {
-    const routing = this.routeQuery(query, userPreference, constraints);
+    const startTime = Date.now();
+    let routingTime = 0;
+    let fallbacksUsed = 0;
     const attemptedModels: string[] = [];
-    
-    // Try primary model and fallbacks
-    const modelsToTry = [routing.selectedModel, ...routing.fallbackChain];
-    
-    for (const model of modelsToTry) {
-      try {
-        attemptedModels.push(model.name);
-        
-        // Check failure history
-        const failures = this.failureHistory.get(model.id) || 0;
-        if (failures >= this.MAX_RETRIES) {
-          console.log(`⏭️ Skipping ${model.name} due to recent failures`);
-          continue;
-        }
 
-        console.log(`🤖 Trying ${model.name} (${model.provider})`);
-        
-        const response = await aiClient.callModel(model, query, options);
-        
-        if (response.success) {
-          // Reset failure count on success
-          this.failureHistory.delete(model.id);
-          
-          return {
-            ...response,
-            routing,
-            attemptedModels,
-            finalModel: model.name
-          };
-        } else {
-          // Track failure
-          this.failureHistory.set(model.id, failures + 1);
-          console.log(`❌ ${model.name} failed: ${response.error}`);
+    try {
+      // Use enhanced intelligent routing
+      const routingStartTime = Date.now();
+      const routing = enhancedModelManager.routeIntelligently(query, category, {
+        ...constraints,
+        userPreference
+      });
+      routingTime = Date.now() - routingStartTime;
+
+      // Try primary model and fallbacks
+      const modelsToTry: DynamicModel[] = [routing.selectedModel, ...routing.fallbackChain];
+
+      for (const model of modelsToTry) {
+        try {
+          attemptedModels.push(model.name);
+
+          console.log(`🤖 Trying ${model.name} (${model.provider}) - Confidence: ${(routing.confidence * 100).toFixed(1)}%`);
+
+          const callStartTime = Date.now();
+          const response = await aiClient.callModel(model as Model, query, options);
+          const callLatency = Date.now() - callStartTime;
+
+          if (response.success) {
+            // Record successful performance
+            intelligentModelRouter.recordModelResult(
+              model.id,
+              true,
+              callLatency,
+              response.cost
+            );
+
+            const totalTime = Date.now() - startTime;
+
+            return {
+              ...response,
+              routing,
+              attemptedModels,
+              finalModel: model.name,
+              performance: {
+                routingTime,
+                totalTime,
+                fallbacksUsed
+              }
+            };
+          } else {
+            // Record failed performance
+            intelligentModelRouter.recordModelResult(
+              model.id,
+              false,
+              callLatency,
+              0
+            );
+
+            console.log(`❌ ${model.name} failed: ${response.error}`);
+            fallbacksUsed++;
+          }
+
+        } catch (error) {
+          intelligentModelRouter.recordModelResult(
+            model.id,
+            false,
+            Date.now() - startTime,
+            0
+          );
+
+          console.log(`❌ ${model.name} error: ${error instanceof Error ? error.message : 'Unknown'}`);
+          fallbacksUsed++;
         }
-        
-      } catch (error) {
-        const failures = this.failureHistory.get(model.id) || 0;
-        this.failureHistory.set(model.id, failures + 1);
-        console.log(`❌ ${model.name} error: ${error instanceof Error ? error.message : 'Unknown'}`);
+      }
+
+      // If all models failed, return error with performance data
+      const totalTime = Date.now() - startTime;
+      return {
+        content: `I apologize, but I'm currently experiencing technical difficulties. All available models (${attemptedModels.join(', ')}) are temporarily unavailable. Please try again in a few moments.`,
+        model: routing.selectedModel.name,
+        provider: routing.selectedModel.provider,
+        tokens: 50,
+        cost: 0,
+        latency: totalTime,
+        success: false,
+        error: 'All models failed',
+        routing,
+        attemptedModels,
+        finalModel: 'none',
+        performance: {
+          routingTime,
+          totalTime,
+          fallbacksUsed
+        }
+      };
+
+    } catch (error) {
+      const totalTime = Date.now() - startTime;
+
+      // Fallback to legacy routing if enhanced routing fails
+      console.warn('Enhanced routing failed, falling back to basic routing:', error);
+
+      // Create a basic routing decision for fallback
+      const fallbackModels = dynamicModelRegistry.getModelsWithPerformance()
+        .filter(m => m.enabled)
+        .slice(0, 3);
+
+      if (fallbackModels.length === 0) {
+        return {
+          content: 'No models available',
+          model: 'none',
+          provider: 'none',
+          tokens: 0,
+          cost: 0,
+          latency: totalTime,
+          success: false,
+          error: 'No models configured',
+          routing: {
+            selectedModel: {} as DynamicModel,
+            reasoning: ['Fallback routing'],
+            confidence: 0,
+            alternatives: [],
+            performanceScore: 0,
+            costEfficiencyScore: 0,
+            expectedLatency: 0,
+            fallbackChain: []
+          },
+          attemptedModels: [],
+          finalModel: 'none',
+          performance: { routingTime, totalTime, fallbacksUsed }
+        };
+      }
+
+      // Try the first available model
+      const fallbackModel = fallbackModels[0];
+      try {
+        const response = await aiClient.callModel(fallbackModel as Model, query, options);
+        return {
+          ...response,
+          routing: {
+            selectedModel: fallbackModel,
+            reasoning: ['Fallback routing after enhanced routing failed'],
+            confidence: 0.5,
+            alternatives: [],
+            performanceScore: 0.5,
+            costEfficiencyScore: 0.5,
+            expectedLatency: 5000,
+            fallbackChain: []
+          },
+          attemptedModels: [fallbackModel.name],
+          finalModel: fallbackModel.name,
+          performance: { routingTime, totalTime, fallbacksUsed }
+        };
+      } catch (fallbackError) {
+        return {
+          content: 'All routing methods failed',
+          model: 'none',
+          provider: 'none',
+          tokens: 0,
+          cost: 0,
+          latency: totalTime,
+          success: false,
+          error: 'Complete system failure',
+          routing: {
+            selectedModel: {} as DynamicModel,
+            reasoning: ['Complete routing failure'],
+            confidence: 0,
+            alternatives: [],
+            performanceScore: 0,
+            costEfficiencyScore: 0,
+            expectedLatency: 0,
+            fallbackChain: []
+          },
+          attemptedModels: [],
+          finalModel: 'none',
+          performance: { routingTime, totalTime, fallbacksUsed }
+        };
       }
     }
-
-    // If all models failed, return error with last attempt
-    const lastModel = modelsToTry[modelsToTry.length - 1];
-    return {
-      content: `I apologize, but I'm currently experiencing technical difficulties. All available models (${attemptedModels.join(', ')}) are temporarily unavailable. Please try again in a few moments.`,
-      model: lastModel.name,
-      provider: lastModel.provider,
-      tokens: 50,
-      cost: 0,
-      latency: 0,
-      success: false,
-      error: 'All models failed',
-      routing,
-      attemptedModels,
-      finalModel: 'none'
-    };
   }
 
   /**
    * Select the best model for the analysis
    */
   private selectBestModel(
-    analysis: QueryAnalysis, 
+    analysis: QueryAnalysis,
     constraints: { maxCost?: number; preferFree?: boolean; requiresSpeed?: boolean }
   ): Model | null {
     const preferences = {
@@ -306,7 +446,7 @@ export class IntelligentAIRouter {
 
     // First try to get a model from the specific category
     let model = modelManager.getBestModelForTask(analysis.type, preferences);
-    
+
     // If no model found, try related categories
     if (!model) {
       const fallbackCategories = this.getFallbackCategories(analysis.type);
@@ -319,7 +459,7 @@ export class IntelligentAIRouter {
     // Last resort: any available model
     if (!model) {
       const allModels = modelManager.getAllModels();
-      model = allModels.find(m => 
+      model = allModels.find(m =>
         (!preferences.maxCost || m.costPer1kTokens <= preferences.maxCost) &&
         (!preferences.requiresVision || m.supportsVision) &&
         (!preferences.requiresCode || m.supportsCode)
@@ -338,7 +478,7 @@ export class IntelligentAIRouter {
     primaryModel: Model | null
   ): Model[] {
     const chain: Model[] = [];
-    
+
     // Add free models as fallbacks
     if (!constraints.preferFree) {
       const freeModels = modelManager.getFreeModels()
@@ -346,7 +486,7 @@ export class IntelligentAIRouter {
         .filter(m => !analysis.requiresVision || m.supportsVision)
         .filter(m => !analysis.requiresCode || m.supportsCode)
         .slice(0, 2);
-      
+
       chain.push(...freeModels);
     }
 
@@ -378,31 +518,31 @@ export class IntelligentAIRouter {
    */
   private generateReasoning(model: Model, analysis: QueryAnalysis): string {
     const reasons: string[] = [];
-    
+
     if (analysis.type === 'CODE' && model.supportsCode) {
       reasons.push('optimized for code generation');
     }
-    
+
     if (analysis.requiresVision && model.supportsVision) {
       reasons.push('supports image analysis');
     }
-    
+
     if (analysis.complexity === 'complex' && model.modelSize?.includes('70B')) {
       reasons.push('large model for complex reasoning');
     }
-    
+
     if (analysis.urgency === 'high' && (model.category === 'FAST' || model.strengths.includes('fast'))) {
       reasons.push('optimized for speed');
     }
-    
+
     if (model.costPer1kTokens === 0) {
       reasons.push('free model');
     }
-    
+
     if (reasons.length === 0) {
       reasons.push('best available model for this task');
     }
-    
+
     return `Selected ${model.name} because it's ${reasons.join(' and ')}`;
   }
 
@@ -411,16 +551,16 @@ export class IntelligentAIRouter {
    */
   private calculateConfidence(model: Model, analysis: QueryAnalysis): number {
     let confidence = 0.7; // Base confidence
-    
+
     // Boost confidence for exact matches
     if (model.category === analysis.type) confidence += 0.2;
     if (analysis.requiresCode && model.supportsCode) confidence += 0.1;
     if (analysis.requiresVision && model.supportsVision) confidence += 0.1;
-    
+
     // Reduce confidence for mismatches
     if (analysis.requiresCode && !model.supportsCode) confidence -= 0.3;
     if (analysis.requiresVision && !model.supportsVision) confidence -= 0.3;
-    
+
     return Math.min(1.0, Math.max(0.1, confidence));
   }
 
@@ -435,9 +575,15 @@ export class IntelligentAIRouter {
       'REASONING': ['CHAT', 'CODE', 'FAST'],
       'CREATIVE': ['CHAT', 'REASONING', 'FAST'],
       'FAST': ['CHAT', 'CODE', 'REASONING'],
-      'CHAT': ['REASONING', 'FAST', 'CODE']
+      'CHAT': ['REASONING', 'FAST', 'CODE'],
+      // New AI mode fallbacks
+      'IMAGE_GEN': ['MULTIMODAL', 'CREATIVE', 'CHAT'],
+      'VIDEO_GEN': ['IMAGE_GEN', 'MULTIMODAL', 'CREATIVE'],
+      'AUDIO_STT': ['MULTIMODAL', 'CHAT', 'FAST'],
+      'AUDIO_TTS': ['MULTIMODAL', 'CHAT', 'FAST'],
+      'EMBEDDING': ['CHAT', 'REASONING', 'FAST']
     };
-    
+
     return fallbacks[type] || ['CHAT', 'FAST'];
   }
 
@@ -449,13 +595,13 @@ export class IntelligentAIRouter {
     const frenchWords = ['le', 'la', 'les', 'de', 'et', 'à', 'un', 'une', 'ce', 'que'];
     const spanishWords = ['el', 'la', 'los', 'las', 'de', 'y', 'a', 'un', 'una', 'que'];
     const germanWords = ['der', 'die', 'das', 'und', 'zu', 'ein', 'eine', 'ich', 'ist', 'mit'];
-    
+
     const queryLower = query.toLowerCase();
-    
+
     if (frenchWords.some(word => queryLower.includes(` ${word} `))) return 'fr';
     if (spanishWords.some(word => queryLower.includes(` ${word} `))) return 'es';
     if (germanWords.some(word => queryLower.includes(` ${word} `))) return 'de';
-    
+
     return 'en';
   }
 
@@ -465,7 +611,7 @@ export class IntelligentAIRouter {
   public getSystemStatus() {
     const modelStatus = modelManager.getSystemStatus();
     const cacheStatus = aiClient.getCacheStatus();
-    
+
     return {
       ...modelStatus,
       cache: cacheStatus,
@@ -504,14 +650,14 @@ export class IntelligentAIRouter {
 
     for (const query of testQueries) {
       try {
-        const result = await this.processQuery(query);
+        const result = await this.processQueryEnhanced(query);
         results.push({
           query,
           model: result.finalModel,
           success: result.success,
           error: result.error
         });
-        
+
         if (!result.success) allSuccess = false;
       } catch (error) {
         results.push({

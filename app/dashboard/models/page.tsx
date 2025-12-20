@@ -76,11 +76,11 @@ export default function ModelsPage() {
   // Calculate model statistics
   const modelStats = {
     total: models.length,
-    textModels: models.filter(m => !m.supportsImages && !m.supportsVision).length,
-    imageModels: models.filter(m => m.supportsImages).length,
+    textModels: models.filter(m => !m.supportsVision).length,
+    imageModels: models.filter(m => m.supportsVision).length,
     visionModels: models.filter(m => m.supportsVision).length,
     codeModels: models.filter(m => m.supportsCode).length,
-    openSource: models.filter(m => m.isOpenSource).length,
+    openSource: models.filter(m => m.costPer1kTokens === 0).length,
     providers: Array.from(new Set(models.map(m => m.provider))).length
   };
 
@@ -192,7 +192,7 @@ export default function ModelsPage() {
             {model.costPer1kTokens === 0 && <Badge variant="secondary">Open Source</Badge>}
             {model.costPer1kTokens === 0 && <Badge variant="default" className="bg-green-600">Free</Badge>}
             {model.costPer1kTokens > 0 && model.costPer1kTokens <= 0.1 && <Badge variant="default" className="bg-blue-600">Cheap</Badge>}
-            {(model.provider === 'groq' || model.provider === 'deepinfra') && <Badge variant="outline" className="text-purple-600 border-purple-600">Fast</Badge>}
+            {(model.provider === 'groq') && <Badge variant="outline" className="text-purple-600 border-purple-600">Fast</Badge>}
           </div>
         </div>
       </CardHeader>
@@ -216,18 +216,18 @@ export default function ModelsPage() {
             </div>
             <div>
               <span className="font-medium">Input Cost:</span>
-              <span className="ml-1">${model.costPer1kInput}/1k</span>
+              <span className="ml-1">${model.costPer1kTokens}/1k</span>
             </div>
             <div>
               <span className="font-medium">Output Cost:</span>
-              <span className="ml-1">${model.costPer1kOutput}/1k</span>
+              <span className="ml-1">${model.costPer1kTokens}/1k</span>
             </div>
           </div>
 
           <div>
             <span className="text-sm font-medium">Best for:</span>
             <div className="flex flex-wrap gap-1 mt-1">
-              {model.bestFor.slice(0, 3).map((use) => (
+              {(model.strengths || []).slice(0, 3).map((use: string) => (
                 <Badge key={use} variant="outline" className="text-xs">
                   {use}
                 </Badge>
@@ -534,7 +534,7 @@ export default function ModelsPage() {
         <TabsContent value="text" className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {filteredModels
-              .filter(m => !m.supportsImages && !m.supportsVision)
+              .filter(m => !m.supportsVision)
               .map((model) => (
                 <ModelCard key={model.id} model={model} />
               ))}
@@ -554,7 +554,7 @@ export default function ModelsPage() {
         <TabsContent value="image" className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {filteredModels
-              .filter(m => m.supportsImages)
+              .filter(m => m.supportsVision)
               .map((model) => (
                 <ModelCard key={model.id} model={model} />
               ))}
@@ -564,7 +564,7 @@ export default function ModelsPage() {
         <TabsContent value="multimodal" className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {filteredModels
-              .filter(m => m.supportsVision || m.supportsAudio || m.supportsVideo)
+              .filter(m => m.supportsVision)
               .map((model) => (
                 <ModelCard key={model.id} model={model} />
               ))}

@@ -34,14 +34,14 @@ export async function GET(req: NextRequest) {
     // Transform requests to match the expected format
     const queries = requests.map(request => {
       // Analyze the query to determine content type
-      const analysis = sophisticatedAIRouter.analyzeQuery(request.query);
+      const analysis = aiRouter.analyzeQuery(request.query);
       
       return {
         id: request.id,
         query: request.query,
         model: request.model,
         timestamp: request.createdAt.toISOString(),
-        contentType: analysis.contentType
+        contentType: analysis.type || 'CHAT'
       };
     });
 

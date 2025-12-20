@@ -7,7 +7,9 @@ export const ModelSchema = z.object({
   provider: z.enum([
     'openai', 'anthropic', 'google', 'cohere', 'mistral', 'meta',
     'huggingface', 'ollama', 'together', 'perplexity', 'groq',
-    'replicate', 'stability', 'midjourney', 'runpod'
+    'replicate', 'stability', 'midjourney', 'runpod',
+    // New providers for specialized modes
+    'elevenlabs', 'assemblyai', 'deepgram', 'suno'
   ]),
   modelId: z.string(),
   apiUrl: z.string().optional(),
@@ -27,17 +29,23 @@ export const ModelSchema = z.object({
   enabled: z.boolean().default(true),
   priority: z.number().default(50),
   category: z.enum([
-    'CHAT', 'CODE', 'REASONING', 'CREATIVE', 'FAST', 'VISION', 'MULTIMODAL'
+    'CHAT', 'CODE', 'REASONING', 'CREATIVE', 'FAST', 'VISION', 'MULTIMODAL',
+    'IMAGE_GEN', 'VIDEO_GEN', 'AUDIO_STT', 'AUDIO_TTS', 'EMBEDDING'
   ]).default('CHAT'),
-  tier: z.enum(['FREE', 'BASIC', 'PREMIUM', 'ENTERPRISE']).default('FREE')
+  tier: z.enum(['FREE', 'BASIC', 'PREMIUM', 'ENTERPRISE']).default('FREE'),
+  // New capability flags
+  supportsImageGen: z.boolean().default(false),
+  supportsAudioInput: z.boolean().default(false),
+  supportsAudioOutput: z.boolean().default(false),
+  supportsEmbeddings: z.boolean().default(false)
 });
 
 export type Model = z.infer<typeof ModelSchema>;
 
-// Comprehensive model configurations
-export const ALL_MODELS: Model[] = [
+// Raw model configurations that will be validated and filled with defaults
+const RAW_MODELS = [
   // ===== OPEN SOURCE MODELS (FREE) =====
-  
+
   // Meta Llama Models (HuggingFace)
   {
     id: 'llama-2-7b-chat',
@@ -75,7 +83,7 @@ export const ALL_MODELS: Model[] = [
     tier: 'FREE',
     priority: 15
   },
-  
+
   // Code Llama Models
   {
     id: 'code-llama-7b',
@@ -113,7 +121,7 @@ export const ALL_MODELS: Model[] = [
     tier: 'FREE',
     priority: 8
   },
-  
+
   // Mistral Models
   {
     id: 'mistral-7b-instruct',
@@ -153,7 +161,7 @@ export const ALL_MODELS: Model[] = [
     tier: 'FREE',
     priority: 18
   },
-  
+
   // Other Open Source Models
   {
     id: 'starcoder',
@@ -227,9 +235,9 @@ export const ALL_MODELS: Model[] = [
     tier: 'FREE',
     priority: 100 // Fallback model
   },
-  
+
   // ===== PAID MODELS =====
-  
+
   // OpenAI Models
   {
     id: 'gpt-4o',
@@ -285,7 +293,7 @@ export const ALL_MODELS: Model[] = [
     tier: 'BASIC',
     priority: 7
   },
-  
+
   // Anthropic Models
   {
     id: 'claude-3-5-sonnet',
@@ -322,7 +330,7 @@ export const ALL_MODELS: Model[] = [
     tier: 'BASIC',
     priority: 4
   },
-  
+
   // Google Models
   {
     id: 'gemini-1.5-pro',
@@ -359,7 +367,7 @@ export const ALL_MODELS: Model[] = [
     tier: 'BASIC',
     priority: 11
   },
-  
+
   // Groq Models (Fast Inference)
   {
     id: 'groq-llama-3-70b',
@@ -392,8 +400,196 @@ export const ALL_MODELS: Model[] = [
     category: 'FAST',
     tier: 'BASIC',
     priority: 14
+  },
+
+  // ===== IMAGE GENERATION MODELS =====
+  {
+    id: 'dall-e-3',
+    name: 'DALL-E 3',
+    provider: 'openai',
+    modelId: 'dall-e-3',
+    costPer1kTokens: 40.0, // ~$0.04 per image (standard), treating as tokens
+    maxTokens: 4000, // Prompt max
+    contextWindow: 4000,
+    supportsChat: false,
+    supportsCode: false,
+    supportsImageGen: true,
+    description: 'OpenAI\'s most advanced image generation model',
+    strengths: ['photorealistic', 'creative', 'high-quality', 'vivid'],
+    category: 'IMAGE_GEN',
+    tier: 'PREMIUM',
+    priority: 1
+  },
+  {
+    id: 'dall-e-2',
+    name: 'DALL-E 2',
+    provider: 'openai',
+    modelId: 'dall-e-2',
+    costPer1kTokens: 16.0, // ~$0.016-0.02 per image
+    maxTokens: 1000,
+    contextWindow: 1000,
+    supportsChat: false,
+    supportsCode: false,
+    supportsImageGen: true,
+    description: 'OpenAI\'s efficient image generation model',
+    strengths: ['fast', 'affordable', 'variations', 'edits'],
+    category: 'IMAGE_GEN',
+    tier: 'BASIC',
+    priority: 5
+  },
+  {
+    id: 'stable-diffusion-xl',
+    name: 'Stable Diffusion XL',
+    provider: 'stability',
+    modelId: 'stable-diffusion-xl-1024-v1-0',
+    apiUrl: 'https://api.stability.ai/v1/generation/stable-diffusion-xl-1024-v1-0/text-to-image',
+    costPer1kTokens: 6.5, // ~$0.0065 per image
+    maxTokens: 2048,
+    contextWindow: 2048,
+    supportsChat: false,
+    supportsCode: false,
+    supportsImageGen: true,
+    description: 'High-quality open-source image generation',
+    strengths: ['photorealistic', 'artistic', 'controllable', 'affordable'],
+    category: 'IMAGE_GEN',
+    tier: 'BASIC',
+    priority: 3
+  },
+  {
+    id: 'sdxl-turbo',
+    name: 'SDXL Turbo',
+    provider: 'stability',
+    modelId: 'stable-diffusion-xl-1024-v1-0',
+    apiUrl: 'https://api.stability.ai/v1/generation/stable-diffusion-xl-1024-v1-0/text-to-image',
+    costPer1kTokens: 2.0, // Very affordable
+    maxTokens: 2048,
+    contextWindow: 2048,
+    supportsChat: false,
+    supportsCode: false,
+    supportsImageGen: true,
+    description: 'Ultra-fast image generation',
+    strengths: ['ultra-fast', 'real-time', 'affordable'],
+    category: 'IMAGE_GEN',
+    tier: 'BASIC',
+    priority: 4
+  },
+
+  // ===== AUDIO MODELS (Speech-to-Text) =====
+  {
+    id: 'whisper-1',
+    name: 'Whisper',
+    provider: 'openai',
+    modelId: 'whisper-1',
+    costPer1kTokens: 6.0, // $0.006 per minute
+    maxTokens: 25000, // ~25 minutes of audio
+    contextWindow: 25000,
+    supportsChat: false,
+    supportsCode: false,
+    supportsAudioInput: true,
+    description: 'OpenAI\'s powerful speech recognition model',
+    strengths: ['multilingual', 'accurate', 'timestamps', 'translation'],
+    languages: ['en', 'es', 'fr', 'de', 'it', 'ja', 'ko', 'zh', 'pt', 'nl', 'ru', 'ar', 'hi'],
+    category: 'AUDIO_STT',
+    tier: 'BASIC',
+    priority: 1
+  },
+
+  // ===== AUDIO MODELS (Text-to-Speech) =====
+  {
+    id: 'tts-1',
+    name: 'TTS-1',
+    provider: 'openai',
+    modelId: 'tts-1',
+    costPer1kTokens: 15.0, // $0.015 per 1K characters
+    maxTokens: 4096,
+    contextWindow: 4096,
+    supportsChat: false,
+    supportsCode: false,
+    supportsAudioOutput: true,
+    description: 'OpenAI\'s fast text-to-speech model',
+    strengths: ['fast', 'natural', 'multiple-voices'],
+    category: 'AUDIO_TTS',
+    tier: 'BASIC',
+    priority: 2
+  },
+  {
+    id: 'tts-1-hd',
+    name: 'TTS-1 HD',
+    provider: 'openai',
+    modelId: 'tts-1-hd',
+    costPer1kTokens: 30.0, // $0.030 per 1K characters
+    maxTokens: 4096,
+    contextWindow: 4096,
+    supportsChat: false,
+    supportsCode: false,
+    supportsAudioOutput: true,
+    description: 'OpenAI\'s high-definition text-to-speech model',
+    strengths: ['high-quality', 'natural', 'studio-grade'],
+    category: 'AUDIO_TTS',
+    tier: 'PREMIUM',
+    priority: 1
+  },
+  {
+    id: 'elevenlabs-multilingual',
+    name: 'ElevenLabs Multilingual v2',
+    provider: 'elevenlabs',
+    modelId: 'eleven_multilingual_v2',
+    apiUrl: 'https://api.elevenlabs.io/v1/text-to-speech',
+    costPer1kTokens: 18.0,
+    maxTokens: 5000,
+    contextWindow: 5000,
+    supportsChat: false,
+    supportsCode: false,
+    supportsAudioOutput: true,
+    description: 'Premium multilingual voice synthesis',
+    strengths: ['ultra-realistic', 'voice-cloning', 'emotional'],
+    languages: ['en', 'de', 'pl', 'es', 'it', 'fr', 'pt', 'hi', 'ar', 'zh', 'ja', 'ko'],
+    category: 'AUDIO_TTS',
+    tier: 'PREMIUM',
+    priority: 3
+  },
+
+  // ===== EMBEDDING MODELS =====
+  {
+    id: 'text-embedding-3-small',
+    name: 'Text Embedding 3 Small',
+    provider: 'openai',
+    modelId: 'text-embedding-3-small',
+    costPer1kTokens: 0.02, // $0.00002 per 1K tokens
+    maxTokens: 8191,
+    contextWindow: 8191,
+    supportsChat: false,
+    supportsCode: false,
+    supportsEmbeddings: true,
+    description: 'Efficient text embedding model for semantic search',
+    strengths: ['fast', 'affordable', '1536-dimensions'],
+    category: 'EMBEDDING',
+    tier: 'BASIC',
+    priority: 1
+  },
+  {
+    id: 'text-embedding-3-large',
+    name: 'Text Embedding 3 Large',
+    provider: 'openai',
+    modelId: 'text-embedding-3-large',
+    costPer1kTokens: 0.13, // $0.00013 per 1K tokens
+    maxTokens: 8191,
+    contextWindow: 8191,
+    supportsChat: false,
+    supportsCode: false,
+    supportsEmbeddings: true,
+    description: 'High-accuracy embedding model with configurable dimensions',
+    strengths: ['high-accuracy', 'flexible-dimensions', '3072-dimensions'],
+    category: 'EMBEDDING',
+    tier: 'PREMIUM',
+    priority: 2
   }
 ];
+
+// Validate and create the final models array with defaults
+export const ALL_MODELS: Model[] = RAW_MODELS.map(model =>
+  ModelSchema.parse(model)
+);
 
 // Environment variable mappings for API keys
 export const API_KEY_MAPPINGS = {
@@ -402,22 +598,44 @@ export const API_KEY_MAPPINGS = {
   google: 'GOOGLE_API_KEY',
   cohere: 'COHERE_API_KEY',
   mistral: 'MISTRAL_API_KEY',
+  meta: 'META_API_KEY',
   huggingface: 'HUGGINGFACE_API_KEY',
-  groq: 'GROQ_API_KEY',
+  ollama: 'OLLAMA_API_KEY',
   together: 'TOGETHER_API_KEY',
   perplexity: 'PERPLEXITY_API_KEY',
-  replicate: 'REPLICATE_API_KEY'
+  groq: 'GROQ_API_KEY',
+  replicate: 'REPLICATE_API_KEY',
+  stability: 'STABILITY_API_KEY',
+  midjourney: 'MIDJOURNEY_API_KEY',
+  runpod: 'RUNPOD_API_KEY',
+  // New specialized providers
+  elevenlabs: 'ELEVENLABS_API_KEY',
+  assemblyai: 'ASSEMBLYAI_API_KEY',
+  deepgram: 'DEEPGRAM_API_KEY',
+  suno: 'SUNO_API_KEY'
 } as const;
 
 // Model categories for routing
 export const MODEL_CATEGORIES = {
+  // Text-based categories
   CHAT: 'Conversational AI and general queries',
   CODE: 'Code generation and programming assistance',
   REASONING: 'Complex reasoning and analysis',
   CREATIVE: 'Creative writing and content generation',
   FAST: 'Quick responses and real-time applications',
   VISION: 'Image and visual content analysis',
-  MULTIMODAL: 'Multi-format content processing'
+  MULTIMODAL: 'Multi-format content processing',
+
+  // Generation categories
+  IMAGE_GEN: 'AI image generation (DALL-E, Stable Diffusion, Midjourney)',
+  VIDEO_GEN: 'AI video generation and editing',
+
+  // Audio categories
+  AUDIO_STT: 'Speech-to-text transcription (Whisper)',
+  AUDIO_TTS: 'Text-to-speech synthesis',
+
+  // Utility categories
+  EMBEDDING: 'Text embeddings for semantic search and RAG'
 } as const;
 
 export type ModelProvider = keyof typeof API_KEY_MAPPINGS;

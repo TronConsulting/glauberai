@@ -5,12 +5,13 @@ import { useRouter } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Copy, Loader2, Send, Crown, AlertTriangle, Sparkles, Paperclip, X, Upload, FileText, Image as ImageIcon } from 'lucide-react';
+import { Copy, Loader2, Send, Crown, AlertTriangle, Sparkles, Paperclip, X, Upload, FileText, Image as ImageIcon, Mic, Music, Hash, Palette, MessageSquare, Code } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Progress } from "@/components/ui/progress";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import Image from 'next/image';
 import { useAuth } from '@/hooks/use-auth';
 
@@ -170,22 +171,22 @@ export default function QueryPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     // Validate form
     if (!query.trim() && files.length === 0) {
       setError("Please enter a query or attach a file");
       return;
     }
-    
+
     setIsSubmitting(true);
     setError("");
     setResult(null);
-    
+
     try {
       const formData = new FormData();
       formData.append('query', query.trim() || 'Analyze attached files');
       formData.append('selectedModel', 'auto');
-      
+
       // Add files to form data
       files.forEach((file, index) => {
         formData.append('files', file);
@@ -194,7 +195,7 @@ export default function QueryPage() {
         method: 'POST',
         body: formData
       });
-      
+
       const data = await res.json();
 
       if (!res.ok) {
@@ -230,19 +231,19 @@ export default function QueryPage() {
         conversationMessages: data.conversationMessages,
         alternatives: Array.isArray(data.alternatives)
           ? data.alternatives.map((alt: any) => ({
-              name: alt.name,
-              provider: alt.provider,
-              strengths: Array.isArray(alt.strengths) ? alt.strengths : undefined,
-              estimatedCost: typeof alt.estimatedCost === 'number' ? alt.estimatedCost : undefined,
-            }))
+            name: alt.name,
+            provider: alt.provider,
+            strengths: Array.isArray(alt.strengths) ? alt.strengths : undefined,
+            estimatedCost: typeof alt.estimatedCost === 'number' ? alt.estimatedCost : undefined,
+          }))
           : undefined,
         fallbackUsed: Boolean(data.fallbackUsed),
         primaryModel: typeof data.primaryModel === 'string' ? data.primaryModel : undefined,
         providerFailures: Array.isArray(data.providerFailures)
           ? data.providerFailures.map((failure: any) => ({
-              provider: String(failure.provider ?? ''),
-              reason: String(failure.reason ?? '')
-            }))
+            provider: String(failure.provider ?? ''),
+            reason: String(failure.reason ?? '')
+          }))
           : undefined,
       };
 
@@ -286,8 +287,8 @@ export default function QueryPage() {
     const validFiles = selectedFiles.filter(file => {
       const maxSize = 10 * 1024 * 1024; // 10MB
       if (file.size > maxSize) {
-        toast({ 
-          title: 'File too large', 
+        toast({
+          title: 'File too large',
           description: `${file.name} is too large. Maximum size is 10MB.`,
           variant: 'destructive'
         });
@@ -295,12 +296,12 @@ export default function QueryPage() {
       }
       return true;
     });
-    
+
     if (validFiles.length > 0) {
       setFiles(prev => [...prev, ...validFiles]);
-      toast({ 
-        title: 'Files attached', 
-        description: `${validFiles.length} file(s) added successfully.` 
+      toast({
+        title: 'Files attached',
+        description: `${validFiles.length} file(s) added successfully.`
       });
       setShowFileDialog(false);
     }
@@ -320,7 +321,7 @@ export default function QueryPage() {
     e.preventDefault();
     e.stopPropagation();
     setDragActive(false);
-    
+
     if (e.dataTransfer.files && e.dataTransfer.files[0]) {
       const droppedFiles = Array.from(e.dataTransfer.files);
       processFiles(droppedFiles);
@@ -363,515 +364,514 @@ export default function QueryPage() {
 
   return (
     <div className="max-w-4xl mx-auto py-10 px-4">
-        {/* Header */}
-        <div className="text-center mb-8">
-          <div className="flex items-center justify-center gap-3 mb-4">
-            <div className="h-8 w-8 bg-primary/10 rounded-lg flex items-center justify-center">
-              <Image 
-                src="/neural.png" 
-                alt="Neural Logo" 
-                width={32} 
-                height={32} 
-                className="object-contain"
-              />
-            </div>
-            <h1 className="text-3xl font-bold">AI Query Platform</h1>
+      {/* Header */}
+      <div className="text-center mb-8">
+        <div className="flex items-center justify-center gap-3 mb-4">
+          <div className="h-8 w-8 bg-primary/10 rounded-lg flex items-center justify-center">
+            <Image
+              src="/neural.png"
+              alt="Neural Logo"
+              width={32}
+              height={32}
+              className="object-contain"
+            />
           </div>
-          <p className="text-muted-foreground text-lg">
-            Enter your prompt and let our AI choose the best model for you
-          </p>
+          <h1 className="text-3xl font-bold">AI Query Platform</h1>
         </div>
+        <p className="text-muted-foreground text-lg">
+          Enter your prompt and let our AI choose the best model for you
+        </p>
+      </div>
 
-        {/* Usage Alert */}
-        {usage && usage.plan.name === 'STARTER' && usage.usagePercentage > 80 && (
-          <Alert className="mb-6 border-orange-200 bg-orange-50/50 dark:border-orange-800 dark:bg-orange-950/50">
-            <AlertTriangle className="h-4 w-4 text-orange-600" />
-            <AlertDescription className="text-orange-800 dark:text-orange-200">
-              You've used {usage.tokensUsed} of {usage.planLimit} tokens this month.
-              {usage.remainingTokens > 0 ? ` ${usage.remainingTokens} tokens remaining.` : ' Please upgrade your plan to continue.'}
-            </AlertDescription>
-          </Alert>
-        )}
+      {/* Usage Alert */}
+      {usage && usage.plan.name === 'STARTER' && usage.usagePercentage > 80 && (
+        <Alert className="mb-6 border-orange-200 bg-orange-50/50 dark:border-orange-800 dark:bg-orange-950/50">
+          <AlertTriangle className="h-4 w-4 text-orange-600" />
+          <AlertDescription className="text-orange-800 dark:text-orange-200">
+            You've used {usage.tokensUsed} of {usage.planLimit} tokens this month.
+            {usage.remainingTokens > 0 ? ` ${usage.remainingTokens} tokens remaining.` : ' Please upgrade your plan to continue.'}
+          </AlertDescription>
+        </Alert>
+      )}
 
-        {/* Plan Information and Usage */}
-        {usage && (
-          <Card className="mb-6">
-            <CardContent className="pt-6">
-              <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center gap-3">
-                  <Crown className="h-5 w-5 text-yellow-600" />
-                  <div>
-                    <h3 className="font-semibold text-lg">{usage.plan.name} Plan</h3>
-                    <p className="text-sm text-muted-foreground">
-                      {usage.plan.name === 'STARTER' && 'Perfect for getting started with AI'}
-                      {usage.plan.name === 'PROFESSIONAL' && 'Advanced features for power users'}
-                      {usage.plan.name === 'ENTERPRISE' && 'Unlimited access for enterprise needs'}
+      {/* Plan Information and Usage */}
+      {usage && (
+        <Card className="mb-6">
+          <CardContent className="pt-6">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-3">
+                <Crown className="h-5 w-5 text-yellow-600" />
+                <div>
+                  <h3 className="font-semibold text-lg">{usage.plan.name} Plan</h3>
+                  <p className="text-sm text-muted-foreground">
+                    {usage.plan.name === 'STARTER' && 'Perfect for getting started with AI'}
+                    {usage.plan.name === 'PROFESSIONAL' && 'Advanced features for power users'}
+                    {usage.plan.name === 'ENTERPRISE' && 'Unlimited access for enterprise needs'}
+                  </p>
+                </div>
+              </div>
+              {usage.plan.name !== 'ENTERPRISE' && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => router.push('/dashboard?tab=billing')}
+                  className="border-primary text-primary hover:bg-primary hover:text-white"
+                >
+                  Upgrade Plan
+                </Button>
+              )}
+            </div>
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-medium">Monthly Usage</span>
+                <span className="text-sm text-muted-foreground">
+                  {usageMetrics?.usageLabel}
+                </span>
+              </div>
+              <Progress value={usageMetrics?.percentage ?? 0} className="h-2" />
+              <div className="flex items-center justify-between text-xs text-muted-foreground">
+                <span>{usageMetrics?.remainingLabel}</span>
+                <span>{usageMetrics?.percentageLabel}</span>
+              </div>
+            </div>
+            {/* Upgrade Suggestions */}
+            {usage.usagePercentage > 70 && usage.plan.name === 'STARTER' && (
+              <div className="mt-4 p-3 bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-950/50 dark:to-purple-950/50 rounded-lg border border-blue-200 dark:border-blue-800">
+                <div className="flex items-start gap-3">
+                  <Sparkles className="h-5 w-5 text-blue-600 mt-0.5" />
+                  <div className="flex-1">
+                    <h4 className="font-medium text-blue-900 dark:text-blue-100">Ready to upgrade?</h4>
+                    <p className="text-sm text-blue-700 dark:text-blue-300 mt-1">
+                      You're approaching your limit. Upgrade to Professional for 1,000,000 tokens/month and advanced features.
                     </p>
+                    <Button
+                      size="sm"
+                      className="mt-2 bg-blue-600 hover:bg-blue-700 text-white"
+                      onClick={() => router.push('/dashboard?tab=billing')}
+                    >
+                      Upgrade Now
+                    </Button>
                   </div>
                 </div>
-                {usage.plan.name !== 'ENTERPRISE' && (
-                  <Button 
-                    variant="outline" 
-                    size="sm"
-                    onClick={() => router.push('/dashboard?tab=billing')}
-                    className="border-primary text-primary hover:bg-primary hover:text-white"
-                  >
-                    Upgrade Plan
-                  </Button>
-                )}
               </div>
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium">Monthly Usage</span>
-                  <span className="text-sm text-muted-foreground">
-                    {usageMetrics?.usageLabel}
-                  </span>
-                </div>
-                <Progress value={usageMetrics?.percentage ?? 0} className="h-2" />
-                <div className="flex items-center justify-between text-xs text-muted-foreground">
-                  <span>{usageMetrics?.remainingLabel}</span>
-                  <span>{usageMetrics?.percentageLabel}</span>
-                </div>
-              </div>
-              {/* Upgrade Suggestions */}
-              {usage.usagePercentage > 70 && usage.plan.name === 'STARTER' && (
-                <div className="mt-4 p-3 bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-950/50 dark:to-purple-950/50 rounded-lg border border-blue-200 dark:border-blue-800">
-                  <div className="flex items-start gap-3">
-                    <Sparkles className="h-5 w-5 text-blue-600 mt-0.5" />
-                    <div className="flex-1">
-                      <h4 className="font-medium text-blue-900 dark:text-blue-100">Ready to upgrade?</h4>
-                      <p className="text-sm text-blue-700 dark:text-blue-300 mt-1">
-                        You're approaching your limit. Upgrade to Professional for 1,000,000 tokens/month and advanced features.
-                      </p>
-                        <Button 
-                        size="sm" 
-                        className="mt-2 bg-blue-600 hover:bg-blue-700 text-white"
-                        onClick={() => router.push('/dashboard?tab=billing')}
-                      >
-                        Upgrade Now
-                      </Button>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {usage.usagePercentage > 80 && usage.plan.name === 'PROFESSIONAL' && (
-                <div className="mt-4 p-3 bg-gradient-to-r from-purple-50 to-pink-50 dark:from-purple-950/50 dark:to-pink-950/50 rounded-lg border border-purple-200 dark:border-purple-800">
-                  <div className="flex items-start gap-3">
-                    <Crown className="h-5 w-5 text-purple-600 mt-0.5" />
-                    <div className="flex-1">
-                      <h4 className="font-medium text-purple-900 dark:text-purple-100">Need unlimited access?</h4>
-                      <p className="text-sm text-purple-700 dark:text-purple-300 mt-1">
-                        You're using a lot of requests. Consider Enterprise for unlimited requests and priority support.
-                      </p>
-                      <Button 
-                        size="sm" 
-                        className="mt-2 bg-purple-600 hover:bg-purple-700 text-white"
-                        onClick={() => router.push('/dashboard?tab=billing')}
-                      >
-                        Contact Sales
-                      </Button>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Query Form */}
-        <Card className="shadow-lg border-primary/10">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Sparkles className="h-5 w-5" />
-              Enter Your Prompt
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <form onSubmit={handleSubmit} className="space-y-6">
-              <div>
-                <Textarea
-                  placeholder="Describe what you need... (text, code, images, analysis, etc.)"
-                  value={query}
-                  onChange={(e) => setQuery(e.target.value)}
-                  rows={6}
-                  className="resize-none bg-muted/50 border-2 border-accent focus:border-primary transition text-lg"
-                  disabled={isSubmitting}
-                />
-                <p className="mt-2 text-xs text-muted-foreground">
-                  Responses are capped at 500 tokens (including attachments) for reliability.
-                </p>
-              </div>
-
-              {/* File Upload */}
-              <div className="space-y-3">
-                <div className="flex items-center gap-2">
-                  <Button 
-                    type="button" 
-                    variant="outline" 
-                    size="sm" 
-                    disabled={isSubmitting}
-                    onClick={() => setShowFileDialog(true)}
-                  >
-                    <Paperclip className="h-4 w-4 mr-2" />
-                    Attach Files
-                  </Button>
-                  <span className="text-sm text-muted-foreground">
-                    Support for images, documents, and more (max 10MB each)
-                  </span>
-                </div>
-                
-                {/* File List */}
-                {files.length > 0 && (
-                  <div className="space-y-2">
-                    {files.map((file, index) => (
-                      <div key={index} className="flex items-center justify-between p-3 bg-muted/50 rounded-lg border">
-                        <div className="flex items-center gap-3">
-                          {getFileIcon(file)}
-                          <div>
-                            <span className="text-sm font-medium">{file.name}</span>
-                            <div className="text-xs text-muted-foreground">
-                              {formatFileSize(file.size)} • {file.type || 'Unknown type'}
-                            </div>
-                          </div>
-                        </div>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => removeFile(index)}
-                          disabled={isSubmitting}
-                          className="text-red-500 hover:text-red-700"
-                        >
-                          <X className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-              
-              <div className="flex gap-3">
-                <Button 
-                  type="submit" 
-                  className="flex-1 h-12 text-lg" 
-                  disabled={isSubmitting || (!query.trim() && files.length === 0)}
-                >
-                  {isSubmitting ? (
-                    <>
-                      <Loader2 className="animate-spin h-5 w-5 mr-2" />
-                      Processing...
-                    </>
-                  ) : (
-                    <>
-                      <Send className="h-5 w-5 mr-2" />
-                      Send Query
-                    </>
-                  )}
-                </Button>
-                <Button 
-                  type="button" 
-                  variant="outline" 
-                  onClick={handleClear} 
-                  disabled={isSubmitting || (!query.trim() && files.length === 0)} 
-                  className="px-6"
-                >
-                  Clear
-                </Button>
-              </div>
-            </form>
-
-            {error && (
-              <Alert className="mt-6 border-red-200 bg-red-50/50">
-                <AlertTriangle className="h-4 w-4 text-red-600" />
-                <AlertDescription className="text-red-800">{error}</AlertDescription>
-              </Alert>
             )}
-            
-            {result && (
-              <div className="mt-8 space-y-4">
-                {/* Model Info */}
-                <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between p-4 bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-950/50 dark:to-purple-950/50 rounded-lg">
-                  <div className="space-y-2">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <Badge variant="default" className="text-sm">{result.model}</Badge>
-                      {result.provider && (
-                        <Badge variant="outline" className="text-sm capitalize">{result.provider}</Badge>
-                      )}
-                      {result.responseType && (
-                        <Badge variant="outline" className="text-sm">{result.responseType}</Badge>
-                      )}
-                      {result.isOpenSource && (
-                        <Badge variant="secondary" className="text-sm">Open Source</Badge>
-                      )}
-                      {result.fallbackUsed && result.primaryModel && (
-                        <Badge
-                          variant="outline"
-                          className="text-xs uppercase tracking-wide text-amber-700 border-amber-400 bg-amber-50"
-                        >
-                          Fallback from {result.primaryModel}
-                        </Badge>
-                      )}
-                    </div>
-                    <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
-                      <span>Smart routing selected this model</span>
-                      {result.conversationContextIncluded && (
-                        <span className="flex items-center gap-1 text-blue-600 dark:text-blue-300">
-                          <Sparkles className="h-3 w-3" />
-                          Conversation context applied
-                        </span>
-                      )}
-                    </div>
+
+            {usage.usagePercentage > 80 && usage.plan.name === 'PROFESSIONAL' && (
+              <div className="mt-4 p-3 bg-gradient-to-r from-purple-50 to-pink-50 dark:from-purple-950/50 dark:to-pink-950/50 rounded-lg border border-purple-200 dark:border-purple-800">
+                <div className="flex items-start gap-3">
+                  <Crown className="h-5 w-5 text-purple-600 mt-0.5" />
+                  <div className="flex-1">
+                    <h4 className="font-medium text-purple-900 dark:text-purple-100">Need unlimited access?</h4>
+                    <p className="text-sm text-purple-700 dark:text-purple-300 mt-1">
+                      You're using a lot of requests. Consider Enterprise for unlimited requests and priority support.
+                    </p>
+                    <Button
+                      size="sm"
+                      className="mt-2 bg-purple-600 hover:bg-purple-700 text-white"
+                      onClick={() => router.push('/dashboard?tab=billing')}
+                    >
+                      Contact Sales
+                    </Button>
                   </div>
-                  <Button variant="ghost" size="icon" onClick={handleCopy}>
-                    <Copy className="h-4 w-4" />
-                  </Button>
                 </div>
-
-                {/* File Processing Info */}
-                {result.filesProcessed > 0 && (
-                  <Card className="border-green-200 bg-green-50/50 dark:border-green-800 dark:bg-green-950/50">
-                    <CardContent className="pt-4">
-                      <div className="flex items-center gap-2 mb-2">
-                        <div className="h-2 w-2 bg-green-500 rounded-full" />
-                        <span className="text-sm font-medium text-green-800 dark:text-green-200">
-                          Files Processed Successfully
-                        </span>
-                      </div>
-                      <div className="text-sm text-green-700 dark:text-green-300 space-y-1">
-                        <p>• {result.filesProcessed} file(s) analyzed</p>
-                        {result.hasImages && <p>• Image analysis enabled</p>}
-                        {result.hasDocuments && <p>• Document processing enabled</p>}
-                        {result.fileTypes && result.fileTypes.length > 0 && (
-                          <p>• File types: {result.fileTypes.join(', ')}</p>
-                        )}
-                      </div>
-                    </CardContent>
-                  </Card>
-                )}
-
-                {/* Model Details */}
-                <Card className="border-blue-200 bg-blue-50/50 dark:border-blue-800 dark:bg-blue-950/50">
-                  <CardContent className="pt-4">
-                    <div className="space-y-3">
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm font-medium">Model Reasoning</span>
-                        {result.confidence && (
-                          <Badge variant="outline" className="text-xs">
-                            {Math.round(result.confidence * 100)}% confidence
-                          </Badge>
-                        )}
-                      </div>
-                      <p className="text-sm text-blue-700 dark:text-blue-300">
-                        {result.reasoning || 'The routing engine selected this model based on relevance and capabilities.'}
-                      </p>
-                      {capabilityBadges.length > 0 && (
-                        <div className="flex flex-wrap items-center gap-2 text-xs text-blue-600 dark:text-blue-400">
-                          <span>Capabilities:</span>
-                          {capabilityBadges.map((capability) => (
-                            <Badge key={capability} variant="secondary" className="capitalize">
-                              {capability}
-                            </Badge>
-                          ))}
-                        </div>
-                      )}
-                      {estimatedCostLabel && (
-                        <div className="flex items-center gap-2 text-xs text-blue-600 dark:text-blue-400">
-                          <span>Estimated cost:</span>
-                          <span className="font-medium">${estimatedCostLabel}</span>
-                        </div>
-                      )}
-                    </div>
-                  </CardContent>
-                </Card>
-
-                {/* Conversation Context */}
-                {result.conversationContextIncluded && conversationPreview && (
-                  <Card className="border-indigo-200 bg-indigo-50/50 dark:border-indigo-800 dark:bg-indigo-950/50">
-                    <CardContent className="pt-4 space-y-2 text-sm text-indigo-800 dark:text-indigo-200">
-                      <div className="flex items-center gap-2">
-                        <Sparkles className="h-4 w-4" />
-                        <span className="font-medium">Recent conversation context</span>
-                      </div>
-                      <pre className="whitespace-pre-wrap rounded-md bg-white/60 dark:bg-black/20 p-3 text-xs text-indigo-900 dark:text-indigo-100 border border-indigo-200/70 dark:border-indigo-700/70">
-                        {conversationPreview}
-                      </pre>
-                      <p className="text-xs text-indigo-700/80 dark:text-indigo-300/80">
-                        Earlier exchanges are blended into the prompt to maintain continuity.
-                      </p>
-                    </CardContent>
-                  </Card>
-                )}
-
-                {result.providerFailures && result.providerFailures.length > 0 && (
-                  <Card className="border-amber-200 bg-amber-50/60 dark:border-amber-900 dark:bg-amber-950/40">
-                    <CardContent className="pt-4 space-y-3 text-sm text-amber-800 dark:text-amber-100">
-                      <div className="flex items-center gap-2">
-                        <AlertTriangle className="h-4 w-4" />
-                        <span className="font-medium">Provider diagnostics</span>
-                      </div>
-                      <p className="text-xs text-amber-700/80 dark:text-amber-200/80">
-                        We attempted multiple providers automatically. Here are the latest responses from each service:
-                      </p>
-                      <ul className="space-y-2 text-xs">
-                        {result.providerFailures.map((failure, index) => (
-                          <li key={`${failure.provider}-${index}`} className="rounded-md border border-amber-200/60 dark:border-amber-800/60 bg-white/70 dark:bg-black/30 p-2">
-                            <span className="font-semibold uppercase tracking-wide">{formatProviderName(failure.provider)}</span>
-                            <span className="ml-2 text-amber-700/90 dark:text-amber-200/90">{failure.reason}</span>
-                          </li>
-                        ))}
-                      </ul>
-                    </CardContent>
-                  </Card>
-                )}
-
-                {/* Response */}
-                <Card>
-                  <CardContent className="pt-6">
-                    <div className="whitespace-pre-line text-base leading-relaxed">{result.response}</div>
-                  </CardContent>
-                </Card>
-
-                {/* Suggested Alternatives */}
-                {result.alternatives && result.alternatives.length > 0 && (
-                  <Card className="border-slate-200 bg-slate-50/40 dark:border-slate-800 dark:bg-slate-950/40">
-                    <CardContent className="pt-4 space-y-3">
-                      <h3 className="text-sm font-medium text-slate-900 dark:text-slate-100">Other viable models</h3>
-                      <div className="space-y-2 text-xs text-slate-700 dark:text-slate-300">
-                        {result.alternatives.map((alt) => {
-                          const altCost = formatCurrency(alt.estimatedCost);
-                          return (
-                            <div key={`${alt.provider}-${alt.name}`} className="rounded-md bg-white/70 dark:bg-black/30 border border-slate-200/70 dark:border-slate-700/70 p-3">
-                              <div className="flex flex-wrap items-center gap-2 mb-1">
-                                <Badge variant="outline" className="text-xs">{alt.name}</Badge>
-                                <Badge variant="outline" className="text-xs capitalize">{alt.provider}</Badge>
-                                {altCost && (
-                                  <span className="text-[11px] text-slate-500 dark:text-slate-400">~${altCost}</span>
-                                )}
-                              </div>
-                              {alt.strengths && alt.strengths.length > 0 && (
-                                <ul className="list-disc list-inside space-y-1 text-[11px] text-slate-600 dark:text-slate-300">
-                                  {alt.strengths.map((strength, index) => (
-                                    <li key={index}>{strength}</li>
-                                  ))}
-                                </ul>
-                              )}
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </CardContent>
-                  </Card>
-                )}
               </div>
             )}
           </CardContent>
         </Card>
+      )}
 
-        {/* File Upload Dialog */}
-        <Dialog open={showFileDialog} onOpenChange={setShowFileDialog}>
-          <DialogContent className="max-w-md">
-            <DialogHeader>
-              <DialogTitle className="flex items-center gap-2">
-                <Upload className="h-5 w-5" />
-                Attach Files
-              </DialogTitle>
-              <DialogDescription>
-                Upload files to include with your query. Supported formats: images, PDFs, documents, and more.
-              </DialogDescription>
-            </DialogHeader>
-            
-            <div className="space-y-4">
-              {/* Drag & Drop Area */}
-              <div
-                className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors cursor-pointer ${
-                  dragActive 
-                    ? 'border-primary bg-primary/5' 
-                    : 'border-muted-foreground/25 hover:border-primary/50'
-                }`}
-                onDragEnter={handleDrag}
-                onDragLeave={handleDrag}
-                onDragOver={handleDrag}
-                onDrop={handleDrop}
-                onClick={triggerFileInput}
+      {/* Query Form */}
+      <Card className="shadow-lg border-primary/10">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Sparkles className="h-5 w-5" />
+            Enter Your Prompt
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={handleSubmit} className="space-y-6">
+            <div>
+              <Textarea
+                placeholder="Describe what you need... (text, code, images, analysis, etc.)"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                rows={6}
+                className="resize-none bg-muted/50 border-2 border-accent focus:border-primary transition text-lg"
+                disabled={isSubmitting}
+              />
+              <p className="mt-2 text-xs text-muted-foreground">
+                Responses are capped at 500 tokens (including attachments) for reliability.
+              </p>
+            </div>
+
+            {/* File Upload */}
+            <div className="space-y-3">
+              <div className="flex items-center gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  disabled={isSubmitting}
+                  onClick={() => setShowFileDialog(true)}
+                >
+                  <Paperclip className="h-4 w-4 mr-2" />
+                  Attach Files
+                </Button>
+                <span className="text-sm text-muted-foreground">
+                  Support for images, documents, and more (max 10MB each)
+                </span>
+              </div>
+
+              {/* File List */}
+              {files.length > 0 && (
+                <div className="space-y-2">
+                  {files.map((file, index) => (
+                    <div key={index} className="flex items-center justify-between p-3 bg-muted/50 rounded-lg border">
+                      <div className="flex items-center gap-3">
+                        {getFileIcon(file)}
+                        <div>
+                          <span className="text-sm font-medium">{file.name}</span>
+                          <div className="text-xs text-muted-foreground">
+                            {formatFileSize(file.size)} • {file.type || 'Unknown type'}
+                          </div>
+                        </div>
+                      </div>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => removeFile(index)}
+                        disabled={isSubmitting}
+                        className="text-red-500 hover:text-red-700"
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="flex gap-3">
+              <Button
+                type="submit"
+                className="flex-1 h-12 text-lg"
+                disabled={isSubmitting || (!query.trim() && files.length === 0)}
               >
-                <Upload className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
-                <p className="text-lg font-medium mb-2">Drop files here</p>
-                <p className="text-sm text-muted-foreground mb-4">
-                  or click to browse files
-                </p>
-                <input
-                  type="file"
-                  multiple
-                  onChange={handleFileChange}
-                  className="hidden"
-                  id="file-upload-dialog"
-                  accept="image/*,.pdf,.txt,.doc,.docx,.csv,.json"
-                />
-                <Button variant="outline" className="cursor-pointer">
-                  Choose Files
+                {isSubmitting ? (
+                  <>
+                    <Loader2 className="animate-spin h-5 w-5 mr-2" />
+                    Processing...
+                  </>
+                ) : (
+                  <>
+                    <Send className="h-5 w-5 mr-2" />
+                    Send Query
+                  </>
+                )}
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={handleClear}
+                disabled={isSubmitting || (!query.trim() && files.length === 0)}
+                className="px-6"
+              >
+                Clear
+              </Button>
+            </div>
+          </form>
+
+          {error && (
+            <Alert className="mt-6 border-red-200 bg-red-50/50">
+              <AlertTriangle className="h-4 w-4 text-red-600" />
+              <AlertDescription className="text-red-800">{error}</AlertDescription>
+            </Alert>
+          )}
+
+          {result && (
+            <div className="mt-8 space-y-4">
+              {/* Model Info */}
+              <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between p-4 bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-950/50 dark:to-purple-950/50 rounded-lg">
+                <div className="space-y-2">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Badge variant="default" className="text-sm">{result.model}</Badge>
+                    {result.provider && (
+                      <Badge variant="outline" className="text-sm capitalize">{result.provider}</Badge>
+                    )}
+                    {result.responseType && (
+                      <Badge variant="outline" className="text-sm">{result.responseType}</Badge>
+                    )}
+                    {result.isOpenSource && (
+                      <Badge variant="secondary" className="text-sm">Open Source</Badge>
+                    )}
+                    {result.fallbackUsed && result.primaryModel && (
+                      <Badge
+                        variant="outline"
+                        className="text-xs uppercase tracking-wide text-amber-700 border-amber-400 bg-amber-50"
+                      >
+                        Fallback from {result.primaryModel}
+                      </Badge>
+                    )}
+                  </div>
+                  <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
+                    <span>Smart routing selected this model</span>
+                    {result.conversationContextIncluded && (
+                      <span className="flex items-center gap-1 text-blue-600 dark:text-blue-300">
+                        <Sparkles className="h-3 w-3" />
+                        Conversation context applied
+                      </span>
+                    )}
+                  </div>
+                </div>
+                <Button variant="ghost" size="icon" onClick={handleCopy}>
+                  <Copy className="h-4 w-4" />
                 </Button>
               </div>
 
-              {/* File Requirements */}
-              <div className="text-xs text-muted-foreground space-y-1">
-                <p>• Maximum file size: 10MB per file</p>
-                <p>• Supported formats: Images, PDFs, Documents, Text files</p>
-                <p>• You can upload multiple files at once</p>
-              </div>
-            </div>
-          </DialogContent>
-        </Dialog>
+              {/* File Processing Info */}
+              {result.filesProcessed > 0 && (
+                <Card className="border-green-200 bg-green-50/50 dark:border-green-800 dark:bg-green-950/50">
+                  <CardContent className="pt-4">
+                    <div className="flex items-center gap-2 mb-2">
+                      <div className="h-2 w-2 bg-green-500 rounded-full" />
+                      <span className="text-sm font-medium text-green-800 dark:text-green-200">
+                        Files Processed Successfully
+                      </span>
+                    </div>
+                    <div className="text-sm text-green-700 dark:text-green-300 space-y-1">
+                      <p>• {result.filesProcessed} file(s) analyzed</p>
+                      {result.hasImages && <p>• Image analysis enabled</p>}
+                      {result.hasDocuments && <p>• Document processing enabled</p>}
+                      {result.fileTypes && result.fileTypes.length > 0 && (
+                        <p>• File types: {result.fileTypes.join(', ')}</p>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
 
-        {/* Upgrade Dialog */}
-        <Dialog open={showUpgradeDialog} onOpenChange={setShowUpgradeDialog}>
-          <DialogContent className="max-w-2xl">
-            <DialogHeader>
-              <DialogTitle className="flex items-center gap-2">
-                <Crown className="h-5 w-5 text-yellow-500" />
-                Upgrade Your Plan
-              </DialogTitle>
-              <DialogDescription>
-                You've reached your monthly limit. Upgrade to continue using GlauberAI.
-              </DialogDescription>
-            </DialogHeader>
-            <div className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <Card className="border-2 border-primary/20 hover:border-primary/40 transition-colors cursor-pointer">
-                  <CardHeader>
-                    <CardTitle className="text-lg">Professional</CardTitle>
-                    <div className="text-2xl font-bold">$39<span className="text-sm font-normal text-muted-foreground">/month</span></div>
-                  </CardHeader>
-                  <CardContent>
-                    <ul className="space-y-2 text-sm">
-                      <li>• 50,000 requests/month</li>
-                      <li>• All AI models</li>
-                      <li>• Advanced routing</li>
-                      <li>• Priority support</li>
-                    </ul>
-                    <Button className="w-full mt-4">Upgrade to Professional</Button>
+              {/* Model Details */}
+              <Card className="border-blue-200 bg-blue-50/50 dark:border-blue-800 dark:bg-blue-950/50">
+                <CardContent className="pt-4">
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-medium">Model Reasoning</span>
+                      {result.confidence && (
+                        <Badge variant="outline" className="text-xs">
+                          {Math.round(result.confidence * 100)}% confidence
+                        </Badge>
+                      )}
+                    </div>
+                    <p className="text-sm text-blue-700 dark:text-blue-300">
+                      {result.reasoning || 'The routing engine selected this model based on relevance and capabilities.'}
+                    </p>
+                    {capabilityBadges.length > 0 && (
+                      <div className="flex flex-wrap items-center gap-2 text-xs text-blue-600 dark:text-blue-400">
+                        <span>Capabilities:</span>
+                        {capabilityBadges.map((capability) => (
+                          <Badge key={capability} variant="secondary" className="capitalize">
+                            {capability}
+                          </Badge>
+                        ))}
+                      </div>
+                    )}
+                    {estimatedCostLabel && (
+                      <div className="flex items-center gap-2 text-xs text-blue-600 dark:text-blue-400">
+                        <span>Estimated cost:</span>
+                        <span className="font-medium">${estimatedCostLabel}</span>
+                      </div>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Conversation Context */}
+              {result.conversationContextIncluded && conversationPreview && (
+                <Card className="border-indigo-200 bg-indigo-50/50 dark:border-indigo-800 dark:bg-indigo-950/50">
+                  <CardContent className="pt-4 space-y-2 text-sm text-indigo-800 dark:text-indigo-200">
+                    <div className="flex items-center gap-2">
+                      <Sparkles className="h-4 w-4" />
+                      <span className="font-medium">Recent conversation context</span>
+                    </div>
+                    <pre className="whitespace-pre-wrap rounded-md bg-white/60 dark:bg-black/20 p-3 text-xs text-indigo-900 dark:text-indigo-100 border border-indigo-200/70 dark:border-indigo-700/70">
+                      {conversationPreview}
+                    </pre>
+                    <p className="text-xs text-indigo-700/80 dark:text-indigo-300/80">
+                      Earlier exchanges are blended into the prompt to maintain continuity.
+                    </p>
                   </CardContent>
                 </Card>
-                
-                <Card className="border-2 border-primary/20 hover:border-primary/40 transition-colors cursor-pointer">
-                  <CardHeader>
-                    <CardTitle className="text-lg">Enterprise</CardTitle>
-                    <div className="text-2xl font-bold">$299<span className="text-sm font-normal text-muted-foreground">/month</span></div>
-                  </CardHeader>
-                  <CardContent>
-                    <ul className="space-y-2 text-sm">
-                      <li>• Unlimited requests</li>
-                      <li>• Custom AI models</li>
-                      <li>• Dedicated support</li>
-                      <li>• SLA guarantee</li>
+              )}
+
+              {result.providerFailures && result.providerFailures.length > 0 && (
+                <Card className="border-amber-200 bg-amber-50/60 dark:border-amber-900 dark:bg-amber-950/40">
+                  <CardContent className="pt-4 space-y-3 text-sm text-amber-800 dark:text-amber-100">
+                    <div className="flex items-center gap-2">
+                      <AlertTriangle className="h-4 w-4" />
+                      <span className="font-medium">Provider diagnostics</span>
+                    </div>
+                    <p className="text-xs text-amber-700/80 dark:text-amber-200/80">
+                      We attempted multiple providers automatically. Here are the latest responses from each service:
+                    </p>
+                    <ul className="space-y-2 text-xs">
+                      {result.providerFailures.map((failure, index) => (
+                        <li key={`${failure.provider}-${index}`} className="rounded-md border border-amber-200/60 dark:border-amber-800/60 bg-white/70 dark:bg-black/30 p-2">
+                          <span className="font-semibold uppercase tracking-wide">{formatProviderName(failure.provider)}</span>
+                          <span className="ml-2 text-amber-700/90 dark:text-amber-200/90">{failure.reason}</span>
+                        </li>
+                      ))}
                     </ul>
-                    <Button className="w-full mt-4">Upgrade to Enterprise</Button>
                   </CardContent>
                 </Card>
-              </div>
+              )}
+
+              {/* Response */}
+              <Card>
+                <CardContent className="pt-6">
+                  <div className="whitespace-pre-line text-base leading-relaxed">{result.response}</div>
+                </CardContent>
+              </Card>
+
+              {/* Suggested Alternatives */}
+              {result.alternatives && result.alternatives.length > 0 && (
+                <Card className="border-slate-200 bg-slate-50/40 dark:border-slate-800 dark:bg-slate-950/40">
+                  <CardContent className="pt-4 space-y-3">
+                    <h3 className="text-sm font-medium text-slate-900 dark:text-slate-100">Other viable models</h3>
+                    <div className="space-y-2 text-xs text-slate-700 dark:text-slate-300">
+                      {result.alternatives.map((alt) => {
+                        const altCost = formatCurrency(alt.estimatedCost);
+                        return (
+                          <div key={`${alt.provider}-${alt.name}`} className="rounded-md bg-white/70 dark:bg-black/30 border border-slate-200/70 dark:border-slate-700/70 p-3">
+                            <div className="flex flex-wrap items-center gap-2 mb-1">
+                              <Badge variant="outline" className="text-xs">{alt.name}</Badge>
+                              <Badge variant="outline" className="text-xs capitalize">{alt.provider}</Badge>
+                              {altCost && (
+                                <span className="text-[11px] text-slate-500 dark:text-slate-400">~${altCost}</span>
+                              )}
+                            </div>
+                            {alt.strengths && alt.strengths.length > 0 && (
+                              <ul className="list-disc list-inside space-y-1 text-[11px] text-slate-600 dark:text-slate-300">
+                                {alt.strengths.map((strength, index) => (
+                                  <li key={index}>{strength}</li>
+                                ))}
+                              </ul>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
             </div>
-          </DialogContent>
-        </Dialog>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* File Upload Dialog */}
+      <Dialog open={showFileDialog} onOpenChange={setShowFileDialog}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Upload className="h-5 w-5" />
+              Attach Files
+            </DialogTitle>
+            <DialogDescription>
+              Upload files to include with your query. Supported formats: images, PDFs, documents, and more.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            {/* Drag & Drop Area */}
+            <div
+              className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors cursor-pointer ${dragActive
+                  ? 'border-primary bg-primary/5'
+                  : 'border-muted-foreground/25 hover:border-primary/50'
+                }`}
+              onDragEnter={handleDrag}
+              onDragLeave={handleDrag}
+              onDragOver={handleDrag}
+              onDrop={handleDrop}
+              onClick={triggerFileInput}
+            >
+              <Upload className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
+              <p className="text-lg font-medium mb-2">Drop files here</p>
+              <p className="text-sm text-muted-foreground mb-4">
+                or click to browse files
+              </p>
+              <input
+                type="file"
+                multiple
+                onChange={handleFileChange}
+                className="hidden"
+                id="file-upload-dialog"
+                accept="image/*,.pdf,.txt,.doc,.docx,.csv,.json"
+              />
+              <Button variant="outline" className="cursor-pointer">
+                Choose Files
+              </Button>
+            </div>
+
+            {/* File Requirements */}
+            <div className="text-xs text-muted-foreground space-y-1">
+              <p>• Maximum file size: 10MB per file</p>
+              <p>• Supported formats: Images, PDFs, Documents, Text files</p>
+              <p>• You can upload multiple files at once</p>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Upgrade Dialog */}
+      <Dialog open={showUpgradeDialog} onOpenChange={setShowUpgradeDialog}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Crown className="h-5 w-5 text-yellow-500" />
+              Upgrade Your Plan
+            </DialogTitle>
+            <DialogDescription>
+              You've reached your monthly limit. Upgrade to continue using GlauberAI.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <Card className="border-2 border-primary/20 hover:border-primary/40 transition-colors cursor-pointer">
+                <CardHeader>
+                  <CardTitle className="text-lg">Professional</CardTitle>
+                  <div className="text-2xl font-bold">$39<span className="text-sm font-normal text-muted-foreground">/month</span></div>
+                </CardHeader>
+                <CardContent>
+                  <ul className="space-y-2 text-sm">
+                    <li>• 50,000 requests/month</li>
+                    <li>• All AI models</li>
+                    <li>• Advanced routing</li>
+                    <li>• Priority support</li>
+                  </ul>
+                  <Button className="w-full mt-4">Upgrade to Professional</Button>
+                </CardContent>
+              </Card>
+
+              <Card className="border-2 border-primary/20 hover:border-primary/40 transition-colors cursor-pointer">
+                <CardHeader>
+                  <CardTitle className="text-lg">Enterprise</CardTitle>
+                  <div className="text-2xl font-bold">$299<span className="text-sm font-normal text-muted-foreground">/month</span></div>
+                </CardHeader>
+                <CardContent>
+                  <ul className="space-y-2 text-sm">
+                    <li>• Unlimited requests</li>
+                    <li>• Custom AI models</li>
+                    <li>• Dedicated support</li>
+                    <li>• SLA guarantee</li>
+                  </ul>
+                  <Button className="w-full mt-4">Upgrade to Enterprise</Button>
+                </CardContent>
+              </Card>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 } 

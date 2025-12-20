@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAuthCookie, verifyJwt } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
-import { sophisticatedAIRouter } from '@/lib/ai-routing';
+import { aiRouter } from '@/lib/ai-router';
 
 export async function GET(req: NextRequest) {
   const token = await getAuthCookie();

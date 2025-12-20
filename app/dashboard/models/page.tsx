@@ -31,7 +31,7 @@ import {
   Wind
 } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
-import { COMPREHENSIVE_MODELS, ModelConfig } from '@/lib/ai-routing';
+import { ALL_MODELS, Model } from '@/lib/models';
 
 // Create simplified categories for the UI
 const MODEL_CATEGORIES = {
@@ -64,13 +64,13 @@ const PROVIDER_INFO = {
 };
 
 export default function ModelsPage() {
-  const [models, setModels] = useState<ModelConfig[]>(COMPREHENSIVE_MODELS);
-  const [filteredModels, setFilteredModels] = useState<ModelConfig[]>(COMPREHENSIVE_MODELS);
+  const [models, setModels] = useState<Model[]>(ALL_MODELS);
+  const [filteredModels, setFilteredModels] = useState<Model[]>(ALL_MODELS);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [selectedProvider, setSelectedProvider] = useState<string>('all');
   const [showAddDialog, setShowAddDialog] = useState(false);
-  const [selectedModel, setSelectedModel] = useState<ModelConfig | null>(null);
+  const [selectedModel, setSelectedModel] = useState<Model | null>(null);
   const [customModels, setCustomModels] = useState<any[]>([]);
   
   // Calculate model statistics
@@ -103,22 +103,22 @@ export default function ModelsPage() {
     if (selectedCategory !== 'all') {
       switch (selectedCategory) {
         case 'text_generation':
-          filtered = filtered.filter(model => !model.supportsImages && !model.supportsVision);
+          filtered = filtered.filter(model => !model.supportsVision);
           break;
         case 'code_generation':
           filtered = filtered.filter(model => model.supportsCode);
           break;
         case 'image_generation':
-          filtered = filtered.filter(model => model.supportsImages);
+          filtered = filtered.filter(model => model.supportsFiles);
           break;
         case 'multimodal':
-          filtered = filtered.filter(model => model.supportsVision || model.supportsAudio || model.supportsVideo);
+          filtered = filtered.filter(model => model.supportsVision || model.category === 'MULTIMODAL');
           break;
         case 'open_source':
-          filtered = filtered.filter(model => model.isOpenSource);
+          filtered = filtered.filter(model => model.costPer1kTokens === 0);
           break;
         case 'free_tier':
-          filtered = filtered.filter(model => model.costPer1kInput === 0 || model.provider === 'ollama' || model.provider === 'huggingface');
+          filtered = filtered.filter(model => model.costPer1kTokens === 0 || model.provider === 'ollama' || model.provider === 'huggingface');
           break;
       }
     }
@@ -149,18 +149,16 @@ export default function ModelsPage() {
     }
   };
 
-  const getCapabilityIcons = (model: ModelConfig) => {
+  const getCapabilityIcons = (model: Model) => {
     const icons = [];
     if (model.supportsCode) icons.push(<Code key="code" className="h-3 w-3" />);
-    if (model.supportsImages) icons.push(<ImageIcon key="image" className="h-3 w-3" />);
+    if (model.supportsFiles) icons.push(<ImageIcon key="image" className="h-3 w-3" />);
     if (model.supportsVision) icons.push(<Eye key="vision" className="h-3 w-3" />);
-    if (model.supportsAudio) icons.push(<Mic key="audio" className="h-3 w-3" />);
-    if (model.supportsVideo) icons.push(<Video key="video" className="h-3 w-3" />);
     if (model.supportsStreaming) icons.push(<Activity key="stream" className="h-3 w-3" />);
     return icons;
   };
 
-  const testModel = async (model: ModelConfig) => {
+  const testModel = async (model: Model) => {
     try {
       const response = await fetch('/api/models/test', {
         method: 'POST',
@@ -179,7 +177,7 @@ export default function ModelsPage() {
     }
   };
 
-  const ModelCard = ({ model }: { model: ModelConfig }) => (
+  const ModelCard = ({ model }: { model: Model }) => (
     <Card className="hover:shadow-md transition-shadow">
       <CardHeader className="pb-3">
         <div className="flex items-start justify-between">
@@ -191,10 +189,9 @@ export default function ModelsPage() {
             </div>
           </div>
           <div className="flex gap-1 flex-wrap">
-            {model.isOpenSource && <Badge variant="secondary">Open Source</Badge>}
-            {model.costPer1kInput === 0 && <Badge variant="default" className="bg-green-600">Free</Badge>}
-            {model.costPer1kInput > 0 && model.costPer1kInput <= 0.1 && <Badge variant="default" className="bg-blue-600">Cheap</Badge>}
-            {model.requiresGPU && <Badge variant="outline">GPU</Badge>}
+            {model.costPer1kTokens === 0 && <Badge variant="secondary">Open Source</Badge>}
+            {model.costPer1kTokens === 0 && <Badge variant="default" className="bg-green-600">Free</Badge>}
+            {model.costPer1kTokens > 0 && model.costPer1kTokens <= 0.1 && <Badge variant="default" className="bg-blue-600">Cheap</Badge>}
             {(model.provider === 'groq' || model.provider === 'deepinfra') && <Badge variant="outline" className="text-purple-600 border-purple-600">Fast</Badge>}
           </div>
         </div>

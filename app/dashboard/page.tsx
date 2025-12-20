@@ -22,7 +22,7 @@ import {
   Palette,
   Camera
 } from 'lucide-react';
-import { COMPREHENSIVE_MODELS } from '@/lib/ai-routing';
+import { ALL_MODELS } from '@/lib/models';
 import { useAuth } from '@/hooks/use-auth';
 
 export default function DashboardPage() {
@@ -40,12 +40,12 @@ export default function DashboardPage() {
 
   useEffect(() => {
     // Calculate model statistics
-    const totalModels = COMPREHENSIVE_MODELS.length;
-    const textModels = COMPREHENSIVE_MODELS.filter(m => !m.supportsImages && !m.supportsVision).length;
-    const imageModels = COMPREHENSIVE_MODELS.filter(m => m.supportsImages).length;
-    const visionModels = COMPREHENSIVE_MODELS.filter(m => m.supportsVision).length;
-    const codeModels = COMPREHENSIVE_MODELS.filter(m => m.supportsCode).length;
-    const openSourceModels = COMPREHENSIVE_MODELS.filter(m => m.isOpenSource).length;
+    const totalModels = ALL_MODELS.length;
+    const textModels = ALL_MODELS.filter(m => !m.supportsVision).length;
+    const imageModels = ALL_MODELS.filter(m => m.supportsFiles).length;
+    const visionModels = ALL_MODELS.filter(m => m.supportsVision).length;
+    const codeModels = ALL_MODELS.filter(m => m.supportsCode).length;
+    const openSourceModels = ALL_MODELS.filter(m => m.costPer1kTokens === 0).length;
 
     setStats({
       totalModels,

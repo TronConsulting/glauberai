@@ -1,22 +1,24 @@
 # GlauberAI - Production-Ready Multi-Modal AI Platform
 
-A sophisticated AI query platform with intelligent routing, supporting **text, image generation, audio processing, and embeddings**. Features multi-provider integration, real-time analytics, and Stripe-powered subscriptions.
+A sophisticated AI query platform with intelligent routing, supporting **text, image generation, audio processing, and embeddings**. Features multi-provider integration with **60+ models from 15+ providers**, real-time analytics, and Stripe-powered subscriptions.
 
 ## ✨ Features
 
 ### AI Capabilities
 | Mode | Models | Description |
 |------|--------|-------------|
-| **💬 Chat & Reasoning** | GPT-4o, Claude 3.5, Gemini 1.5 | Conversational AI, complex reasoning |
-| **💻 Code** | Code Llama, StarCoder, GPT-4o | Code generation, debugging, reviews |
-| **🎨 Image Generation** | DALL-E 3, Stable Diffusion XL | Text-to-image, editing, variations |
-| **🎤 Speech-to-Text** | Whisper | Audio transcription, translation |
+| **💬 Chat & Reasoning** | GPT-4o, o1, Claude 3.5 Sonnet, Gemini 2.0, DeepSeek V3 | Conversational AI, complex reasoning |
+| **🧠 Advanced Reasoning** | o1, o1-mini, Claude 3 Opus, DeepSeek R1, QwQ-32B | Chain-of-thought, math, science |
+| **💻 Code** | Code Llama, StarCoder, Codestral, DeepSeek Coder | Code generation, debugging, reviews |
+| **🎨 Image Generation** | DALL-E 3, Stable Diffusion XL, Flux | Text-to-image, editing, variations |
+| **🎤 Speech-to-Text** | Whisper, Deepgram, AssemblyAI | Audio transcription, translation |
 | **🔊 Text-to-Speech** | TTS-1, ElevenLabs | Natural voice synthesis |
-| **🔢 Embeddings** | text-embedding-3 | Semantic search, RAG applications |
+| **🔢 Embeddings** | text-embedding-3, Cohere Embed v3.5 | Semantic search, RAG applications |
+| **🔍 Web Search** | Perplexity Sonar, Grok-2 | Real-time web-augmented responses |
 
 ### Platform Features
 - **Intelligent Routing**: Auto-selects best model based on query, complexity, and files
-- **Multi-Provider**: OpenAI, Anthropic, Google, Groq, HuggingFace, Stability AI, ElevenLabs
+- **Multi-Provider**: OpenAI, Anthropic, Google, Groq, DeepSeek, xAI, Mistral, Cohere, Perplexity, Together, Fireworks, HuggingFace, Stability AI, ElevenLabs
 - **File Support**: Images, documents, audio, video with secure storage
 - **Usage Analytics**: Track requests, costs, and model performance
 - **Subscriptions**: Stripe billing with tiered plans (Starter, Professional, Enterprise)

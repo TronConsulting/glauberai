@@ -26,7 +26,7 @@ export class UniversalAIClient {
   private readonly CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
   private readonly MAX_CACHE_SIZE = 100;
 
-  private constructor() {}
+  private constructor() { }
 
   public static getInstance(): UniversalAIClient {
     if (!UniversalAIClient.instance) {
@@ -44,7 +44,7 @@ export class UniversalAIClient {
     options: AIOptions = {}
   ): Promise<AIResponse> {
     const startTime = Date.now();
-    
+
     try {
       // Check cache first
       const cacheKey = this.getCacheKey(model.id, prompt, options);
@@ -71,6 +71,28 @@ export class UniversalAIClient {
           break;
         case 'huggingface':
           response = await this.callHuggingFace(model, prompt, options);
+          break;
+        // New provider handlers (2024)
+        case 'deepseek':
+          response = await this.callDeepSeek(model, prompt, options);
+          break;
+        case 'xai':
+          response = await this.callXAI(model, prompt, options);
+          break;
+        case 'together':
+          response = await this.callTogether(model, prompt, options);
+          break;
+        case 'perplexity':
+          response = await this.callPerplexity(model, prompt, options);
+          break;
+        case 'cohere':
+          response = await this.callCohere(model, prompt, options);
+          break;
+        case 'mistral':
+          response = await this.callMistral(model, prompt, options);
+          break;
+        case 'fireworks':
+          response = await this.callFireworks(model, prompt, options);
           break;
         default:
           throw new Error(`Provider ${model.provider} not implemented`);
@@ -271,15 +293,15 @@ export class UniversalAIClient {
     const requestBody = model.modelId.includes('t5') || model.modelId.includes('T5')
       ? { inputs: formattedPrompt }
       : {
-          inputs: formattedPrompt,
-          parameters: {
-            max_new_tokens: options.maxTokens || 500,
-            temperature: options.temperature || 0.7,
-            top_p: options.topP || 0.95,
-            do_sample: true,
-            return_full_text: false
-          }
-        };
+        inputs: formattedPrompt,
+        parameters: {
+          max_new_tokens: options.maxTokens || 500,
+          temperature: options.temperature || 0.7,
+          top_p: options.topP || 0.95,
+          do_sample: true,
+          return_full_text: false
+        }
+      };
 
     const response = await fetch(model.apiUrl, {
       method: 'POST',
@@ -296,7 +318,7 @@ export class UniversalAIClient {
     }
 
     const data = await response.json();
-    
+
     let content = '';
     if (Array.isArray(data)) {
       content = data[0]?.generated_text || data[0]?.text || '';
@@ -326,6 +348,279 @@ export class UniversalAIClient {
   }
 
   /**
+   * Call DeepSeek API (OpenAI-compatible)
+   */
+  private async callDeepSeek(model: Model, prompt: string, options: AIOptions): Promise<AIResponse> {
+    const apiUrl = model.apiUrl || 'https://api.deepseek.com/v1/chat/completions';
+    const response = await fetch(apiUrl, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${model.apiKey}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        model: model.modelId,
+        messages: [{ role: 'user', content: prompt }],
+        max_tokens: options.maxTokens || model.maxTokens,
+        temperature: options.temperature || 0.7
+      })
+    });
+
+    if (!response.ok) {
+      const error = await response.text();
+      throw new Error(`DeepSeek API error: ${response.status} - ${error}`);
+    }
+
+    const data = await response.json();
+    const content = data.choices[0]?.message?.content || '';
+
+    return {
+      content,
+      model: model.name,
+      provider: model.provider,
+      tokens: data.usage?.total_tokens || this.estimateTokens(prompt + content),
+      cost: 0,
+      latency: 0,
+      success: true,
+      metadata: { usage: data.usage }
+    };
+  }
+
+  /**
+   * Call xAI (Grok) API (OpenAI-compatible)
+   */
+  private async callXAI(model: Model, prompt: string, options: AIOptions): Promise<AIResponse> {
+    const apiUrl = model.apiUrl || 'https://api.x.ai/v1/chat/completions';
+    const response = await fetch(apiUrl, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${model.apiKey}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        model: model.modelId,
+        messages: [{ role: 'user', content: prompt }],
+        max_tokens: options.maxTokens || model.maxTokens,
+        temperature: options.temperature || 0.7
+      })
+    });
+
+    if (!response.ok) {
+      const error = await response.text();
+      throw new Error(`xAI API error: ${response.status} - ${error}`);
+    }
+
+    const data = await response.json();
+    const content = data.choices[0]?.message?.content || '';
+
+    return {
+      content,
+      model: model.name,
+      provider: model.provider,
+      tokens: data.usage?.total_tokens || this.estimateTokens(prompt + content),
+      cost: 0,
+      latency: 0,
+      success: true,
+      metadata: { usage: data.usage }
+    };
+  }
+
+  /**
+   * Call Together AI API (OpenAI-compatible)
+   */
+  private async callTogether(model: Model, prompt: string, options: AIOptions): Promise<AIResponse> {
+    const apiUrl = model.apiUrl || 'https://api.together.xyz/v1/chat/completions';
+    const response = await fetch(apiUrl, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${model.apiKey}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        model: model.modelId,
+        messages: [{ role: 'user', content: prompt }],
+        max_tokens: options.maxTokens || model.maxTokens,
+        temperature: options.temperature || 0.7
+      })
+    });
+
+    if (!response.ok) {
+      const error = await response.text();
+      throw new Error(`Together API error: ${response.status} - ${error}`);
+    }
+
+    const data = await response.json();
+    const content = data.choices[0]?.message?.content || '';
+
+    return {
+      content,
+      model: model.name,
+      provider: model.provider,
+      tokens: data.usage?.total_tokens || this.estimateTokens(prompt + content),
+      cost: 0,
+      latency: 0,
+      success: true,
+      metadata: { usage: data.usage }
+    };
+  }
+
+  /**
+   * Call Perplexity API (OpenAI-compatible)
+   */
+  private async callPerplexity(model: Model, prompt: string, options: AIOptions): Promise<AIResponse> {
+    const apiUrl = model.apiUrl || 'https://api.perplexity.ai/chat/completions';
+    const response = await fetch(apiUrl, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${model.apiKey}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        model: model.modelId,
+        messages: [{ role: 'user', content: prompt }],
+        max_tokens: options.maxTokens || model.maxTokens,
+        temperature: options.temperature || 0.7
+      })
+    });
+
+    if (!response.ok) {
+      const error = await response.text();
+      throw new Error(`Perplexity API error: ${response.status} - ${error}`);
+    }
+
+    const data = await response.json();
+    const content = data.choices[0]?.message?.content || '';
+
+    return {
+      content,
+      model: model.name,
+      provider: model.provider,
+      tokens: data.usage?.total_tokens || this.estimateTokens(prompt + content),
+      cost: 0,
+      latency: 0,
+      success: true,
+      metadata: { usage: data.usage, citations: data.citations }
+    };
+  }
+
+  /**
+   * Call Cohere API
+   */
+  private async callCohere(model: Model, prompt: string, options: AIOptions): Promise<AIResponse> {
+    const apiUrl = model.apiUrl || 'https://api.cohere.ai/v1/chat';
+    const response = await fetch(apiUrl, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${model.apiKey}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        model: model.modelId,
+        message: prompt,
+        max_tokens: options.maxTokens || model.maxTokens,
+        temperature: options.temperature || 0.7
+      })
+    });
+
+    if (!response.ok) {
+      const error = await response.text();
+      throw new Error(`Cohere API error: ${response.status} - ${error}`);
+    }
+
+    const data = await response.json();
+    const content = data.text || '';
+
+    return {
+      content,
+      model: model.name,
+      provider: model.provider,
+      tokens: (data.meta?.tokens?.input_tokens || 0) + (data.meta?.tokens?.output_tokens || 0) || this.estimateTokens(prompt + content),
+      cost: 0,
+      latency: 0,
+      success: true,
+      metadata: { meta: data.meta, documents: data.documents }
+    };
+  }
+
+  /**
+   * Call Mistral AI API (OpenAI-compatible)
+   */
+  private async callMistral(model: Model, prompt: string, options: AIOptions): Promise<AIResponse> {
+    const apiUrl = model.apiUrl || 'https://api.mistral.ai/v1/chat/completions';
+    const response = await fetch(apiUrl, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${model.apiKey}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        model: model.modelId,
+        messages: [{ role: 'user', content: prompt }],
+        max_tokens: options.maxTokens || model.maxTokens,
+        temperature: options.temperature || 0.7
+      })
+    });
+
+    if (!response.ok) {
+      const error = await response.text();
+      throw new Error(`Mistral API error: ${response.status} - ${error}`);
+    }
+
+    const data = await response.json();
+    const content = data.choices[0]?.message?.content || '';
+
+    return {
+      content,
+      model: model.name,
+      provider: model.provider,
+      tokens: data.usage?.total_tokens || this.estimateTokens(prompt + content),
+      cost: 0,
+      latency: 0,
+      success: true,
+      metadata: { usage: data.usage }
+    };
+  }
+
+  /**
+   * Call Fireworks AI API (OpenAI-compatible)
+   */
+  private async callFireworks(model: Model, prompt: string, options: AIOptions): Promise<AIResponse> {
+    const apiUrl = model.apiUrl || 'https://api.fireworks.ai/inference/v1/chat/completions';
+    const response = await fetch(apiUrl, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${model.apiKey}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        model: model.modelId,
+        messages: [{ role: 'user', content: prompt }],
+        max_tokens: options.maxTokens || model.maxTokens,
+        temperature: options.temperature || 0.7
+      })
+    });
+
+    if (!response.ok) {
+      const error = await response.text();
+      throw new Error(`Fireworks API error: ${response.status} - ${error}`);
+    }
+
+    const data = await response.json();
+    const content = data.choices[0]?.message?.content || '';
+
+    return {
+      content,
+      model: model.name,
+      provider: model.provider,
+      tokens: data.usage?.total_tokens || this.estimateTokens(prompt + content),
+      cost: 0,
+      latency: 0,
+      success: true,
+      metadata: { usage: data.usage }
+    };
+  }
+
+  /**
    * Calculate cost based on tokens and model pricing
    */
   private calculateCost(model: Model, tokens: number): number {
@@ -347,9 +642,11 @@ export class UniversalAIClient {
     // Remove oldest entries if cache is full
     if (this.responseCache.size >= this.MAX_CACHE_SIZE) {
       const firstKey = this.responseCache.keys().next().value;
-      this.responseCache.delete(firstKey);
+      if (firstKey) {
+        this.responseCache.delete(firstKey);
+      }
     }
-    
+
     this.responseCache.set(key, response);
   }
 
@@ -382,7 +679,7 @@ export class UniversalAIClient {
 
       const testModel = models[0];
       const result = await this.callModel(testModel, 'Hello! Please respond with "Test successful"', { maxTokens: 20 });
-      
+
       return { success: result.success, error: result.error };
     } catch (error) {
       return {

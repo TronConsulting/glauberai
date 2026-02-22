@@ -13,15 +13,33 @@ export default function ForgotPasswordPage() {
   const [email, setEmail] = useState("");
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email) {
       setError("Please enter your email address.");
       return;
     }
     setError("");
-    setSubmitted(true);
+    setIsSubmitting(true);
+    try {
+      const res = await fetch('/api/auth/forgot-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email })
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error || 'Failed to send reset email.');
+        return;
+      }
+      setSubmitted(true);
+    } catch (err) {
+      setError('Failed to send reset email.');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -37,7 +55,7 @@ export default function ForgotPasswordPage() {
           <div className="space-y-2">
             <h1 className="text-2xl font-bold">Forgot Password</h1>
             <p className="text-muted-foreground">
-              Enter your email address and we'll send you instructions to reset your password (feature coming soon).
+              Enter your email address and we'll send you instructions to reset your password.
             </p>
           </div>
         </div>
@@ -69,8 +87,8 @@ export default function ForgotPasswordPage() {
                     required
                   />
                 </div>
-                <Button type="submit" className="w-full">
-                  Send Reset Link
+                <Button type="submit" className="w-full" disabled={isSubmitting}>
+                  {isSubmitting ? 'Sending...' : 'Send Reset Link'}
                 </Button>
               </form>
             )}

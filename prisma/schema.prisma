@@ -28,6 +28,7 @@ model User {
   billing      Billing[]
   files        File[]
   subscriptions Subscription[]
+  passwordResetTokens PasswordResetToken[]
 }
 
 model File {
@@ -98,3 +99,14 @@ model Subscription {
   // Relations
   user                  User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 } 
+
+model PasswordResetToken {
+  id        String   @id @default(uuid())
+  userId    String
+  tokenHash String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@index([userId])
+}

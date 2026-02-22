@@ -53,9 +53,9 @@ interface ProviderFailure {
 }
 
 interface QueryResult {
-  model: string;
-  provider: string;
-  reasoning: string;
+  model?: string;
+  provider?: string;
+  reasoning?: string;
   response: string;
   query: string;
   timestamp: string;
@@ -94,6 +94,7 @@ const formatProviderName = (provider: string) => {
 export default function QueryPage() {
   const router = useRouter();
   const { user, loading } = useAuth();
+  const showRoutingDetails = process.env.NEXT_PUBLIC_SHOW_ROUTING_DETAILS === 'true';
   const [query, setQuery] = useState("");
   const [files, setFiles] = useState<File[]>([]);
   const [result, setResult] = useState<QueryResult | null>(null);
@@ -212,9 +213,9 @@ export default function QueryPage() {
 
       const cleanedQuery = query.trim() || 'Analyze attached files';
       const mappedResult: QueryResult = {
-        model: data.model,
-        provider: data.provider,
-        reasoning: data.reasoning,
+        model: typeof data.model === 'string' ? data.model : undefined,
+        provider: typeof data.provider === 'string' ? data.provider : undefined,
+        reasoning: typeof data.reasoning === 'string' ? data.reasoning : undefined,
         response: data.response,
         query: cleanedQuery,
         timestamp: new Date().toLocaleTimeString(),
@@ -592,42 +593,46 @@ export default function QueryPage() {
           {result && (
             <div className="mt-8 space-y-4">
               {/* Model Info */}
-              <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between p-4 bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-950/50 dark:to-purple-950/50 rounded-lg">
-                <div className="space-y-2">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <Badge variant="default" className="text-sm">{result.model}</Badge>
-                    {result.provider && (
-                      <Badge variant="outline" className="text-sm capitalize">{result.provider}</Badge>
-                    )}
-                    {result.responseType && (
-                      <Badge variant="outline" className="text-sm">{result.responseType}</Badge>
-                    )}
-                    {result.isOpenSource && (
-                      <Badge variant="secondary" className="text-sm">Open Source</Badge>
-                    )}
-                    {result.fallbackUsed && result.primaryModel && (
-                      <Badge
-                        variant="outline"
-                        className="text-xs uppercase tracking-wide text-amber-700 border-amber-400 bg-amber-50"
-                      >
-                        Fallback from {result.primaryModel}
-                      </Badge>
-                    )}
+              {showRoutingDetails && (
+                <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between p-4 bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-950/50 dark:to-purple-950/50 rounded-lg">
+                  <div className="space-y-2">
+                    <div className="flex flex-wrap items-center gap-2">
+                      {result.model && (
+                        <Badge variant="default" className="text-sm">{result.model}</Badge>
+                      )}
+                      {result.provider && (
+                        <Badge variant="outline" className="text-sm capitalize">{result.provider}</Badge>
+                      )}
+                      {result.responseType && (
+                        <Badge variant="outline" className="text-sm">{result.responseType}</Badge>
+                      )}
+                      {result.isOpenSource && (
+                        <Badge variant="secondary" className="text-sm">Open Source</Badge>
+                      )}
+                      {result.fallbackUsed && result.primaryModel && (
+                        <Badge
+                          variant="outline"
+                          className="text-xs uppercase tracking-wide text-amber-700 border-amber-400 bg-amber-50"
+                        >
+                          Fallback from {result.primaryModel}
+                        </Badge>
+                      )}
+                    </div>
+                    <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
+                      <span>Smart routing selected this model</span>
+                      {result.conversationContextIncluded && (
+                        <span className="flex items-center gap-1 text-blue-600 dark:text-blue-300">
+                          <Sparkles className="h-3 w-3" />
+                          Conversation context applied
+                        </span>
+                      )}
+                    </div>
                   </div>
-                  <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
-                    <span>Smart routing selected this model</span>
-                    {result.conversationContextIncluded && (
-                      <span className="flex items-center gap-1 text-blue-600 dark:text-blue-300">
-                        <Sparkles className="h-3 w-3" />
-                        Conversation context applied
-                      </span>
-                    )}
-                  </div>
+                  <Button variant="ghost" size="icon" onClick={handleCopy}>
+                    <Copy className="h-4 w-4" />
+                  </Button>
                 </div>
-                <Button variant="ghost" size="icon" onClick={handleCopy}>
-                  <Copy className="h-4 w-4" />
-                </Button>
-              </div>
+              )}
 
               {/* File Processing Info */}
               {result.filesProcessed > 0 && (
@@ -652,39 +657,41 @@ export default function QueryPage() {
               )}
 
               {/* Model Details */}
-              <Card className="border-blue-200 bg-blue-50/50 dark:border-blue-800 dark:bg-blue-950/50">
-                <CardContent className="pt-4">
-                  <div className="space-y-3">
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm font-medium">Model Reasoning</span>
-                      {result.confidence && (
-                        <Badge variant="outline" className="text-xs">
-                          {Math.round(result.confidence * 100)}% confidence
-                        </Badge>
+              {showRoutingDetails && (
+                <Card className="border-blue-200 bg-blue-50/50 dark:border-blue-800 dark:bg-blue-950/50">
+                  <CardContent className="pt-4">
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm font-medium">Model Reasoning</span>
+                        {result.confidence && (
+                          <Badge variant="outline" className="text-xs">
+                            {Math.round(result.confidence * 100)}% confidence
+                          </Badge>
+                        )}
+                      </div>
+                      <p className="text-sm text-blue-700 dark:text-blue-300">
+                        {result.reasoning || 'The routing engine selected this model based on relevance and capabilities.'}
+                      </p>
+                      {capabilityBadges.length > 0 && (
+                        <div className="flex flex-wrap items-center gap-2 text-xs text-blue-600 dark:text-blue-400">
+                          <span>Capabilities:</span>
+                          {capabilityBadges.map((capability) => (
+                            <Badge key={capability} variant="secondary" className="capitalize">
+                              {capability}
+                            </Badge>
+                          ))}
+                        </div>
+                      )}
+                      {estimatedCostLabel && (
+                        <div className="flex items-center gap-2 text-xs text-blue-600 dark:text-blue-400">
+                          <span>Estimated cost:</span>
+                          <span className="font-medium">${estimatedCostLabel}</span>
+                        </div>
                       )}
                     </div>
-                    <p className="text-sm text-blue-700 dark:text-blue-300">
-                      {result.reasoning || 'The routing engine selected this model based on relevance and capabilities.'}
-                    </p>
-                    {capabilityBadges.length > 0 && (
-                      <div className="flex flex-wrap items-center gap-2 text-xs text-blue-600 dark:text-blue-400">
-                        <span>Capabilities:</span>
-                        {capabilityBadges.map((capability) => (
-                          <Badge key={capability} variant="secondary" className="capitalize">
-                            {capability}
-                          </Badge>
-                        ))}
-                      </div>
-                    )}
-                    {estimatedCostLabel && (
-                      <div className="flex items-center gap-2 text-xs text-blue-600 dark:text-blue-400">
-                        <span>Estimated cost:</span>
-                        <span className="font-medium">${estimatedCostLabel}</span>
-                      </div>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
+                  </CardContent>
+                </Card>
+              )}
 
               {/* Conversation Context */}
               {result.conversationContextIncluded && conversationPreview && (
@@ -704,7 +711,7 @@ export default function QueryPage() {
                 </Card>
               )}
 
-              {result.providerFailures && result.providerFailures.length > 0 && (
+              {showRoutingDetails && result.providerFailures && result.providerFailures.length > 0 && (
                 <Card className="border-amber-200 bg-amber-50/60 dark:border-amber-900 dark:bg-amber-950/40">
                   <CardContent className="pt-4 space-y-3 text-sm text-amber-800 dark:text-amber-100">
                     <div className="flex items-center gap-2">
@@ -727,6 +734,14 @@ export default function QueryPage() {
               )}
 
               {/* Response */}
+              {!showRoutingDetails && (
+                <div className="flex items-center justify-between px-1">
+                  <span className="text-sm font-medium text-muted-foreground">Response</span>
+                  <Button variant="ghost" size="icon" onClick={handleCopy}>
+                    <Copy className="h-4 w-4" />
+                  </Button>
+                </div>
+              )}
               <Card>
                 <CardContent className="pt-6">
                   <div className="whitespace-pre-line text-base leading-relaxed">{result.response}</div>
@@ -734,7 +749,7 @@ export default function QueryPage() {
               </Card>
 
               {/* Suggested Alternatives */}
-              {result.alternatives && result.alternatives.length > 0 && (
+              {showRoutingDetails && result.alternatives && result.alternatives.length > 0 && (
                 <Card className="border-slate-200 bg-slate-50/40 dark:border-slate-800 dark:bg-slate-950/40">
                   <CardContent className="pt-4 space-y-3">
                     <h3 className="text-sm font-medium text-slate-900 dark:text-slate-100">Other viable models</h3>

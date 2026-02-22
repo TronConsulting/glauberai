@@ -23,6 +23,7 @@ export const getRedis = () => {
 // In-memory fallback for development
 class InMemoryCache {
   private cache = new Map<string, { value: any; expiry: number }>();
+  private maxSize = 10000; // Configurable limit
 
   async get(key: string) {
     const item = this.cache.get(key);
@@ -35,6 +36,11 @@ class InMemoryCache {
   }
 
   async set(key: string, value: any, options?: { ex?: number; px?: number }) {
+    if (this.cache.size >= this.maxSize) {
+      // Delete oldest entry (LRU approximation)
+      const firstKey = this.cache.keys().next().value;
+      this.cache.delete(firstKey);
+    }
     const expiry = Date.now() + (options?.ex ? options.ex * 1000 : options?.px || 3600000);
     this.cache.set(key, { value, expiry });
   }
@@ -42,7 +48,13 @@ class InMemoryCache {
   async incr(key: string) {
     const current = await this.get(key);
     const newValue = (parseInt(current) || 0) + 1;
-    await this.set(key, newValue);
+    const item = this.cache.get(key);
+    if (item) {
+      // Preserve existing expiry
+      this.cache.set(key, { value: newValue, expiry: item.expiry });
+    } else {
+      await this.set(key, newValue);
+    }
     return newValue;
   }
 

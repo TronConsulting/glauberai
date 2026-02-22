@@ -4,7 +4,7 @@ import { prisma } from '@/lib/prisma';
 import { signJwt, setAuthCookie } from '@/lib/auth';
 import { auditLogger, getIpAddress, getUserAgent } from '@/lib/audit-log';
 import { rateLimiter, RATE_LIMITS } from '@/lib/rate-limit';
-import { validateEmail } from '@/lib/validation';
+import { validateEmail, ValidationError } from '@/lib/validation';
 
 const MAX_FAILED_ATTEMPTS = 5;
 const LOCKOUT_DURATION = 15 * 60 * 1000; // 15 minutes
@@ -49,7 +49,18 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const validatedEmail = validateEmail(email);
+    let validatedEmail: string;
+    try {
+      validatedEmail = validateEmail(email);
+    } catch (error) {
+      if (error instanceof ValidationError) {
+        return NextResponse.json(
+          { error: error.message },
+          { status: 400 }
+        );
+      }
+      throw error;
+    }
 
     // Find user
     const user = await prisma.user.findUnique({
@@ -97,7 +108,7 @@ export async function POST(req: NextRequest) {
 
       return NextResponse.json(
         {
-          error: `Account locked until ${user.lockedUntil.toISOString()}. Please try again later.`,
+          error: 'Too many failed login attempts. Please try again later.',
         },
         { status: 403 }
       );
@@ -107,14 +118,14 @@ export async function POST(req: NextRequest) {
     const isPasswordValid = await bcrypt.compare(password, user.password);
 
     if (!isPasswordValid) {
-      // Increment failed login count
+      // Increment failed login count atomically
       const newFailedCount = user.failedLoginCount + 1;
       const shouldLock = newFailedCount >= MAX_FAILED_ATTEMPTS;
 
       await prisma.user.update({
         where: { id: user.id },
         data: {
-          failedLoginCount: newFailedCount,
+          failedLoginCount: { increment: 1 },
           lockedUntil: shouldLock
             ? new Date(Date.now() + LOCKOUT_DURATION)
             : null,
@@ -139,7 +150,7 @@ export async function POST(req: NextRequest) {
       if (shouldLock) {
         return NextResponse.json(
           {
-            error: `Too many failed attempts. Account locked for ${LOCKOUT_DURATION / 60000} minutes.`,
+            error: 'Too many failed login attempts. Please try again later.',
           },
           { status: 403 }
         );

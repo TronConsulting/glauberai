@@ -117,6 +117,12 @@ class AuditLogger {
       'twoFactorSecret',
     ];
 
+    // Handle arrays
+    if (Array.isArray(data)) {
+      return data.map(item => this.redactSensitiveData(item));
+    }
+
+    // Handle objects
     if (typeof data === 'object') {
       const redacted = { ...data };
 

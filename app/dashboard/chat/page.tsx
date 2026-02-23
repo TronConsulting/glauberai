@@ -3,15 +3,26 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { ChatInterface } from '@/components/chat-interface';
-import { UsageMeter } from '@/components/usage-meter';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Plus, MessageSquare, Menu, X } from 'lucide-react';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { Plus, MessageSquare, Menu, X, User, Settings, CreditCard, LogOut, BarChart3, Key } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { PLAN_LIMITS } from '@/lib/usage';
+import { useAuth } from '@/hooks/use-auth';
+import Link from 'next/link';
+import Image from 'next/image';
 
 interface Conversation {
   id: string;
@@ -22,6 +33,7 @@ interface Conversation {
 
 export default function ChatPage() {
   const router = useRouter();
+  const { user, signOut } = useAuth();
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [currentConversation, setCurrentConversation] = useState<Conversation | null>(null);
   const [loading, setLoading] = useState(true);
@@ -116,25 +128,41 @@ export default function ChatPage() {
     loadConversations();
   };
 
+  const handleSignOut = async () => {
+    await signOut();
+    router.push('/');
+  };
+
   return (
     <div className="flex h-screen bg-background">
-      {/* Sidebar */}
+      {/* Sidebar - ChatGPT Style */}
       <div
         className={cn(
           'flex flex-col border-r bg-background transition-all duration-300',
-          sidebarOpen ? 'w-80' : 'w-0'
+          sidebarOpen ? 'w-64' : 'w-0'
         )}
       >
         {sidebarOpen && (
           <>
-            {/* Header */}
-            <div className="p-4 space-y-4">
-              <div className="flex items-center justify-between">
-                <h2 className="text-lg font-semibold">Conversations</h2>
+            {/* Header with Logo and New Chat */}
+            <div className="p-3 space-y-2">
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center space-x-2">
+                  <div className="flex h-6 w-6 items-center justify-center rounded bg-primary/10">
+                    <Image
+                      src="/neural.png"
+                      alt="GlauberAI"
+                      width={24}
+                      height={24}
+                      className="object-contain"
+                    />
+                  </div>
+                  <span className="font-semibold text-sm">GlauberAI</span>
+                </div>
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="lg:hidden"
+                  className="h-8 w-8 lg:hidden"
                   onClick={() => setSidebarOpen(false)}
                 >
                   <X className="w-4 h-4" />
@@ -151,17 +179,15 @@ export default function ChatPage() {
               </Button>
             </div>
 
-            <Separator />
-
             {/* Conversations List */}
             <ScrollArea className="flex-1 px-2">
-              <div className="space-y-2 p-2">
+              <div className="space-y-1 py-2">
                 {loading ? (
                   Array(5).fill(0).map((_, i) => (
-                    <Skeleton key={i} className="h-16 w-full" />
+                    <Skeleton key={i} className="h-10 w-full" />
                   ))
                 ) : conversations.length === 0 ? (
-                  <div className="text-center py-8 text-muted-foreground text-sm">
+                  <div className="text-center py-8 text-muted-foreground text-xs">
                     No conversations yet
                   </div>
                 ) : (
@@ -170,21 +196,14 @@ export default function ChatPage() {
                       key={conv.id}
                       onClick={() => selectConversation(conv)}
                       className={cn(
-                        'w-full text-left p-3 rounded-lg transition-colors',
+                        'w-full text-left px-3 py-2 rounded-lg transition-colors text-sm',
                         'hover:bg-accent',
                         currentConversation?.id === conv.id && 'bg-accent'
                       )}
                     >
-                      <div className="flex items-start gap-2">
-                        <MessageSquare className="w-4 h-4 mt-1 flex-shrink-0 text-muted-foreground" />
-                        <div className="flex-1 min-w-0">
-                          <p className="font-medium truncate text-sm">
-                            {conv.title || 'New Chat'}
-                          </p>
-                          <p className="text-xs text-muted-foreground">
-                            {conv.messageCount || 0} messages
-                          </p>
-                        </div>
+                      <div className="flex items-center gap-2">
+                        <MessageSquare className="w-3.5 h-3.5 flex-shrink-0 text-muted-foreground" />
+                        <span className="truncate">{conv.title || 'New Chat'}</span>
                       </div>
                     </button>
                   ))
@@ -194,18 +213,82 @@ export default function ChatPage() {
 
             <Separator />
 
-            {/* Usage Meter */}
-            <div className="p-4">
-              {usageLoading ? (
-                <Skeleton className="h-32 w-full" />
-              ) : usage && (
-                <UsageMeter
-                  currentUsage={usage.used}
-                  limit={usage.limit}
-                  planName={usage.plan}
-                  compact={true}
-                />
+            {/* Usage & User Menu */}
+            <div className="p-3 space-y-3">
+              {/* Simple Usage Display */}
+              {!usageLoading && usage && (
+                <div className="px-2 py-1.5 rounded-lg bg-secondary/50 text-xs">
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-muted-foreground">Usage</span>
+                    <span className="font-medium">
+                      {usage.used} / {usage.limit}
+                    </span>
+                  </div>
+                  <div className="w-full bg-secondary rounded-full h-1.5">
+                    <div
+                      className="bg-primary h-1.5 rounded-full transition-all"
+                      style={{ width: `${Math.min((usage.used / usage.limit) * 100, 100)}%` }}
+                    />
+                  </div>
+                </div>
               )}
+
+              {/* User Menu */}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    className="w-full justify-start px-2 h-auto py-2"
+                  >
+                    <Avatar className="h-6 w-6 mr-2">
+                      <AvatarFallback className="text-xs">
+                        {user?.email?.[0].toUpperCase() || 'U'}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="flex-1 text-left min-w-0">
+                      <p className="text-sm font-medium truncate">
+                        {user?.fullName || user?.email || 'User'}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {usage?.plan || 'Free'} Plan
+                      </p>
+                    </div>
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent className="w-56" align="end" side="top">
+                  <DropdownMenuLabel>My Account</DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem asChild>
+                    <Link href="/dashboard/analytics" className="flex items-center">
+                      <BarChart3 className="w-4 h-4 mr-2" />
+                      Analytics
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link href="/dashboard/api" className="flex items-center">
+                      <Key className="w-4 h-4 mr-2" />
+                      API Keys
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link href="/dashboard/billing" className="flex items-center">
+                      <CreditCard className="w-4 h-4 mr-2" />
+                      Billing
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link href="/pricing" className="flex items-center">
+                      <Settings className="w-4 h-4 mr-2" />
+                      Upgrade Plan
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={handleSignOut} className="text-red-600">
+                    <LogOut className="w-4 h-4 mr-2" />
+                    Sign Out
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
           </>
         )}
@@ -213,25 +296,21 @@ export default function ChatPage() {
 
       {/* Main Chat Area */}
       <div className="flex-1 flex flex-col">
-        {/* Header */}
-        <div className="border-b p-4 flex items-center gap-4">
+        {/* Top Bar */}
+        <div className="border-b p-3 flex items-center gap-3 h-14">
           <Button
             variant="ghost"
             size="icon"
+            className="h-8 w-8"
             onClick={() => setSidebarOpen(!sidebarOpen)}
           >
-            <Menu className="w-5 h-5" />
+            <Menu className="w-4 h-4" />
           </Button>
 
-          <div className="flex-1">
-            <h1 className="font-semibold truncate">
+          <div className="flex-1 min-w-0">
+            <h1 className="font-medium text-sm truncate">
               {currentConversation?.title || 'New Chat'}
             </h1>
-            {usage && (
-              <p className="text-xs text-muted-foreground">
-                {usage.used} / {usage.limit} requests used this month
-              </p>
-            )}
           </div>
         </div>
 

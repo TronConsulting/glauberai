@@ -620,6 +620,39 @@ export class UniversalAIClient {
     };
   }
 
+  async streamModel(
+    model: Model,
+    query: string,
+    options: {
+      maxTokens?: number;
+      onToken: (token: string) => void;
+      onComplete: () => void;
+      onError: (error: Error) => void;
+    }
+  ): Promise<void> {
+    // This is a simplified example - actual implementation depends on provider
+    try {
+      const response = await this.callModel(model, query, {
+        maxTokens: options.maxTokens,
+        stream: true,
+      });
+
+      if (response.success && response.content) {
+        // Simulate streaming for non-streaming providers
+        const words = response.content.split(' ');
+        for (const word of words) {
+          options.onToken(word + ' ');
+          await new Promise(resolve => setTimeout(resolve, 50));
+        }
+        options.onComplete();
+      } else {
+        options.onError(new Error(response.error || 'Streaming failed'));
+      }
+    } catch (error) {
+      options.onError(error instanceof Error ? error : new Error('Unknown error'));
+    }
+  }
+
   /**
    * Calculate cost based on tokens and model pricing
    */

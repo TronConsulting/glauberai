@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requireAuth } from '@/lib/auth-enhanced';
 import { prisma } from '@/lib/prisma';
 import { auditLogger, getIpAddress, getUserAgent } from '@/lib/audit-log';
-import { validateConversationTitle } from '@/lib/validation';
+import { validateConversationTitle, ValidationError } from '@/lib/validation';
 
 export const GET = requireAuth(async (req, ctx) => {
   try {
@@ -99,6 +99,12 @@ export const PATCH = requireAuth(async (req, ctx) => {
 
     return NextResponse.json({ conversation });
   } catch (error) {
+    if (error instanceof ValidationError) {
+      return NextResponse.json(
+        { error: error.message },
+        { status: 400 }
+      );
+    }
     console.error('Error updating conversation:', error);
     return NextResponse.json(
       { error: 'Failed to update conversation' },

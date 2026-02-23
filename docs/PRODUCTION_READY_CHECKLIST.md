@@ -17,7 +17,7 @@
 - ✅ Responsive design (mobile + desktop)
 
 ### Navigation
-- ✅ Login → Auto-redirects to `/dashboard/chat`
+- ✅ Login → Auto-redirects to `/chat`
 - ✅ Sidebar navigation: Chat, Analytics, API Keys, Billing
 - ✅ Logo clicks go to chat interface
 - ✅ No confusing tab-based routing
@@ -147,7 +147,7 @@
 ## ✅ What Users See
 
 ### After Login
-1. **Lands on:** `/dashboard/chat`
+1. **Lands on:** `/chat`
 2. **Sees:**
    - Clean chat interface (center)
    - Conversation history (left sidebar)

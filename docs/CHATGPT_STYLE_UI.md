@@ -9,7 +9,7 @@
 
 ### Login Flow
 1. User logs in
-2. Automatically redirected to `/dashboard/chat`
+2. Automatically redirected to `/chat`
 3. Sees **single sidebar** interface (exactly like ChatGPT)
 
 ---
@@ -202,10 +202,9 @@ OR
 ### File Structure
 ```
 app/
-  dashboard/
-    chat/
-      layout.tsx          ← Bypasses dashboard layout
-      page.tsx            ← Standalone chat page
+  chat/
+    layout.tsx          ← Minimal layout
+    page.tsx            ← Standalone chat page
 components/
   chat-interface.tsx      ← Chat UI component
   usage-meter.tsx         ← Usage tracking (not used in sidebar anymore)
@@ -215,16 +214,16 @@ components/
 ```
 Root Layout
   ↓
-Chat Layout (bypass dashboard)
+Chat Layout (minimal)
   ↓
 Chat Page (self-contained)
   ├─ Sidebar (conversations + usage + user menu)
   └─ Chat Area (messages + input)
 ```
 
-### No More Dashboard Layout Wrapper
-- Chat page has its own `layout.tsx`
-- Returns `<>{children}</>` (no wrapper)
+### No Dashboard Layout Wrapper
+- Chat page lives at `/app/chat` (outside dashboard directory)
+- Has minimal layout that returns `<>{children}</>` (no wrapper)
 - Completely independent from dashboard layout
 - No double sidebars
 - No nested navigation
@@ -304,9 +303,9 @@ Chat Page (self-contained)
 
 **User flow:**
 ```
-Login → Chat Page → Start Chatting
-             ↓
-    (Everything in one place)
+Login → /chat → Start Chatting
+         ↓
+(Everything in one place)
 ```
 
 ---

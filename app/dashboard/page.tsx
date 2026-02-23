@@ -9,7 +9,7 @@ export default function DashboardPage() {
 
   useEffect(() => {
     // Redirect to chat page
-    router.push('/dashboard/chat');
+    router.push('/chat');
   }, [router]);
 
   return (

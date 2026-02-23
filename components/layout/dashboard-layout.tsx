@@ -69,32 +69,32 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
 
   const navigation = [
     {
-      name: 'Query Interface',
-      href: '/dashboard?tab=query',
-      key: 'query',
+      name: 'Chat',
+      href: '/dashboard/chat',
+      key: 'chat',
       icon: MessageSquare,
-      current: tabParam === 'query' || pathname === '/dashboard/query'
+      current: pathname === '/dashboard/chat' || pathname === '/dashboard'
     },
     {
       name: 'Analytics',
-      href: '/dashboard?tab=analytics',
+      href: '/dashboard/analytics',
       key: 'analytics',
       icon: BarChart3,
-      current: tabParam === 'analytics' || pathname === '/dashboard/analytics'
+      current: pathname === '/dashboard/analytics'
     },
     {
       name: 'API Keys',
-      href: '/dashboard?tab=api',
+      href: '/dashboard/api',
       key: 'api',
       icon: Key,
-      current: tabParam === 'api' || pathname === '/dashboard/api'
+      current: pathname === '/dashboard/api'
     },
     {
       name: 'Billing',
-      href: '/dashboard?tab=billing',
+      href: '/dashboard/billing',
       key: 'billing',
       icon: CreditCard,
-      current: tabParam === 'billing' || pathname === '/dashboard/billing'
+      current: pathname === '/dashboard/billing'
     }
   ];
 
@@ -131,13 +131,13 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
       <div className="hidden lg:fixed lg:inset-y-0 lg:z-50 lg:flex lg:w-72 lg:flex-col">
         <div className="flex grow flex-col gap-y-5 overflow-y-auto border-r bg-background px-6 pb-4">
       <div className="flex h-16 shrink-0 items-center">
-        <Link href="/dashboard?tab=query" className="flex items-center space-x-2">
+        <Link href="/dashboard/chat" className="flex items-center space-x-2">
               <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10">
-                <Image 
-                  src="/neural.png" 
-                  alt="Neural Logo" 
-                  width={32} 
-                  height={32} 
+                <Image
+                  src="/neural.png"
+                  alt="Neural Logo"
+                  width={32}
+                  height={32}
                   className="object-contain"
                 />
               </div>
@@ -175,13 +175,13 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
         <SheetContent side="left" className="w-72 p-0">
           <div className="flex flex-col h-full">
             <div className="flex h-16 items-center px-6 border-b">
-              <Link href="/dashboard/query" className="flex items-center space-x-2">
+              <Link href="/dashboard/chat" className="flex items-center space-x-2">
                 <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10">
-                  <Image 
-                    src="/neural.png" 
-                    alt="Neural Logo" 
-                    width={32} 
-                    height={32} 
+                  <Image
+                    src="/neural.png"
+                    alt="Neural Logo"
+                    width={32}
+                    height={32}
                     className="object-contain"
                   />
                 </div>

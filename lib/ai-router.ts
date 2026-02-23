@@ -169,6 +169,7 @@ export class IntelligentAIRouter {
    */
   public routeQuery(
     query: string,
+    availableModels?: Model[],
     userPreference?: string,
     constraints: {
       maxCost?: number;
@@ -200,7 +201,7 @@ export class IntelligentAIRouter {
 
     // If no user preference or preference not available, route intelligently
     if (!selectedModel) {
-      selectedModel = this.selectBestModel(analysis, constraints);
+      selectedModel = this.selectBestModel(analysis, constraints, availableModels);
       if (selectedModel) {
         reasoning = this.generateReasoning(selectedModel, analysis);
         confidence = this.calculateConfidence(selectedModel, analysis);
@@ -208,10 +209,10 @@ export class IntelligentAIRouter {
     }
 
     // Fallback chain
-    const fallbackChain = this.buildFallbackChain(analysis, constraints, selectedModel);
+    const fallbackChain = this.buildFallbackChain(analysis, constraints, selectedModel, availableModels);
 
     // Get alternatives
-    const alternatives = this.getAlternatives(selectedModel, analysis, constraints);
+    const alternatives = this.getAlternatives(selectedModel, analysis, constraints, availableModels);
 
     if (!selectedModel) {
       throw new Error('No suitable models available');
@@ -434,7 +435,8 @@ export class IntelligentAIRouter {
    */
   private selectBestModel(
     analysis: QueryAnalysis,
-    constraints: { maxCost?: number; preferFree?: boolean; requiresSpeed?: boolean }
+    constraints: { maxCost?: number; preferFree?: boolean; requiresSpeed?: boolean },
+    availableModels?: Model[]
   ): Model | null {
     const preferences = {
       maxCost: constraints.maxCost,
@@ -444,29 +446,46 @@ export class IntelligentAIRouter {
       requiresSpeed: constraints.requiresSpeed || analysis.urgency === 'high'
     };
 
-    // First try to get a model from the specific category
-    let model = modelManager.getBestModelForTask(analysis.type, preferences);
+    // Use provided models or get all from manager
+    const modelsToSearch = availableModels || modelManager.getAllModels();
 
-    // If no model found, try related categories
+    // Filter models by preferences
+    const candidateModels = modelsToSearch.filter(m =>
+      (!preferences.maxCost || m.costPer1kTokens <= preferences.maxCost) &&
+      (!preferences.requiresVision || m.supportsVision) &&
+      (!preferences.requiresCode || m.supportsCode) &&
+      m.enabled
+    );
+
+    if (candidateModels.length === 0) {
+      return null;
+    }
+
+    // First try to find model matching category
+    let model = candidateModels.find(m => m.category === analysis.type);
+
+    // If no exact match, try fallback categories
     if (!model) {
       const fallbackCategories = this.getFallbackCategories(analysis.type);
       for (const category of fallbackCategories) {
-        model = modelManager.getBestModelForTask(category, preferences);
+        model = candidateModels.find(m => m.category === category);
         if (model) break;
       }
     }
 
-    // Last resort: any available model
+    // If still no match, pick best available
     if (!model) {
-      const allModels = modelManager.getAllModels();
-      model = allModels.find(m =>
-        (!preferences.maxCost || m.costPer1kTokens <= preferences.maxCost) &&
-        (!preferences.requiresVision || m.supportsVision) &&
-        (!preferences.requiresCode || m.supportsCode)
-      ) || null;
+      // Prefer free models if requested
+      if (preferences.preferFree) {
+        model = candidateModels.find(m => m.costPer1kTokens === 0) || candidateModels[0];
+      } else {
+        // Sort by priority and pick best
+        const sorted = candidateModels.sort((a, b) => a.priority - b.priority);
+        model = sorted[0];
+      }
     }
 
-    return model;
+    return model || null;
   }
 
   /**
@@ -475,23 +494,28 @@ export class IntelligentAIRouter {
   private buildFallbackChain(
     analysis: QueryAnalysis,
     constraints: any,
-    primaryModel: Model | null
+    primaryModel: Model | null,
+    availableModels?: Model[]
   ): Model[] {
     const chain: Model[] = [];
 
+    const modelsToSearch = availableModels || modelManager.getAllModels();
+
     // Add free models as fallbacks
     if (!constraints.preferFree) {
-      const freeModels = modelManager.getFreeModels()
+      const freeModels = modelsToSearch
+        .filter(m => m.costPer1kTokens === 0)
         .filter(m => m.id !== primaryModel?.id)
         .filter(m => !analysis.requiresVision || m.supportsVision)
         .filter(m => !analysis.requiresCode || m.supportsCode)
+        .filter(m => m.enabled)
         .slice(0, 2);
 
       chain.push(...freeModels);
     }
 
-    // Always add the ultimate fallback
-    const fallback = modelManager.getFallbackModel();
+    // Always add the ultimate fallback (GPT-2 or first available free model)
+    const fallback = modelsToSearch.find(m => m.id === 'gpt2' || m.costPer1kTokens === 0);
     if (fallback && !chain.some(m => m.id === fallback.id)) {
       chain.push(fallback);
     }
@@ -505,11 +529,16 @@ export class IntelligentAIRouter {
   private getAlternatives(
     selectedModel: Model | null,
     analysis: QueryAnalysis,
-    constraints: any
+    constraints: any,
+    availableModels?: Model[]
   ): Model[] {
-    return modelManager.getModelsByCategory(analysis.type)
+    const modelsToSearch = availableModels || modelManager.getAllModels();
+
+    return modelsToSearch
+      .filter(m => m.category === analysis.type || !availableModels)
       .filter(m => m.id !== selectedModel?.id)
       .filter(m => !constraints.maxCost || m.costPer1kTokens <= constraints.maxCost)
+      .filter(m => m.enabled)
       .slice(0, 3);
   }
 

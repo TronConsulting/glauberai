@@ -38,36 +38,35 @@ export default function PricingPage() {
   const plans = [
     {
       name: 'Starter',
-      description: 'Perfect for getting started with AI - now with 10x more tokens!',
+      description: 'Perfect for getting started with AI',
       price: { monthly: 0, annual: 0 },
-      requests: '10,000',
+      requests: '100',
       icon: Zap,
       popular: false,
       features: [
-        'Up to 10,000 tokens/month',
-        'Smart AI routing to 15+ models',
-        'Free & open source models (Groq, HuggingFace, DeepInfra)',
+        '100 requests/month',
+        'Free & open-source models (Llama, Mistral, GPT-2)',
+        'Smart AI routing',
         'Standard support',
-        'Basic analytics',
-        'API access'
+        'Basic analytics'
       ],
       limitations: [
-        'No advanced routing rules',
-        'Limited model selection',
+        'Limited to free models only',
+        'No access to premium models (GPT-4, Claude, etc.)',
         'Basic support only'
       ]
     },
     {
       name: 'Professional',
-      description: 'For growing businesses and teams',
-      price: { monthly: 39, annual: 390 },
-      requests: '50,000',
+      description: 'For individuals and small teams',
+      price: { monthly: 49, annual: 490 },
+      requests: '500',
       icon: Star,
       popular: true,
       features: [
-        'Up to 50,000 requests/month',
+        '500 requests/month',
         'Advanced AI routing',
-        'All 15+ AI models',
+        'Free + Basic tier models (GPT-4o Mini, Claude Haiku, Gemini Flash)',
         'Priority support',
         'Advanced analytics & insights',
         'Custom routing rules',
@@ -81,14 +80,14 @@ export default function PricingPage() {
     {
       name: 'Enterprise',
       description: 'For large organizations',
-      price: { monthly: 299, annual: 2990 },
-      requests: 'Unlimited',
+      price: { monthly: 499, annual: 4990 },
+      requests: '5,000',
       icon: Building,
       popular: false,
       features: [
-        'Unlimited requests',
+        '5,000 requests/month',
+        'All 60+ AI models including GPT-4o, Claude Opus, DALL-E 3',
         'Custom AI routing logic',
-        'All AI models + custom models',
         'Dedicated support manager',
         'Advanced analytics & reporting',
         'Custom integrations',
@@ -333,7 +332,11 @@ export default function PricingPage() {
                 },
                 {
                   question: "Is there a free trial?",
-                  answer: "Yes! Our Starter plan is completely free with 1,000 requests per month. No credit card required."
+                  answer: "Yes! Our Starter plan is completely free with 100 requests per month. No credit card required."
+                },
+                {
+                  question: "What's the difference between model tiers?",
+                  answer: "Free tier includes open-source models like Llama and Mistral. Basic tier adds GPT-4o Mini and Claude Haiku. Premium tier (Enterprise only) includes GPT-4o, Claude Opus, and DALL-E 3."
                 }
               ].map((faq, index) => (
                 <Card key={index} className="glass">

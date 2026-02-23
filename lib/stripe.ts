@@ -25,27 +25,26 @@ export const PRICE_LOOKUP_KEYS = {
 export const PLANS = {
   starter: {
     name: 'Starter',
-    description: 'Perfect for trying out GlauberAI',
+    description: 'Perfect for getting started with AI',
     price: { monthly: 0, annual: 0 },
-    requests: '1,000',
+    requests: '100',
     features: [
-      'Up to 1,000 requests/month',
-      'Basic AI routing',
-      '3 AI models (GPT-3.5, Claude Haiku, Gemini)',
+      '100 requests/month',
+      'Free & open-source models (Llama, Mistral, GPT-2)',
+      'Smart AI routing',
       'Standard support',
-      'Basic analytics',
-      'API access'
+      'Basic analytics'
     ]
   },
   professional: {
     name: 'Professional',
-    description: 'For growing businesses and teams',
-    price: { monthly: 39, annual: 390 },
-    requests: '50,000',
+    description: 'For individuals and small teams',
+    price: { monthly: 49, annual: 490 },
+    requests: '500',
     features: [
-      'Up to 50,000 requests/month',
+      '500 requests/month',
       'Advanced AI routing',
-      'All 15+ AI models',
+      'Free + Basic tier models (GPT-4o Mini, Claude Haiku, Gemini Flash)',
       'Priority support',
       'Advanced analytics & insights',
       'Custom routing rules',
@@ -58,12 +57,12 @@ export const PLANS = {
   enterprise: {
     name: 'Enterprise',
     description: 'For large organizations',
-    price: { monthly: 299, annual: 2990 },
-    requests: 'Unlimited',
+    price: { monthly: 499, annual: 4990 },
+    requests: '5,000',
     features: [
-      'Unlimited requests',
+      '5,000 requests/month',
+      'All 60+ AI models including GPT-4o, Claude Opus, DALL-E 3',
       'Custom AI routing logic',
-      'All AI models + custom models',
       'Dedicated support manager',
       'Advanced analytics & reporting',
       'Custom integrations',

@@ -7,6 +7,8 @@ import { rateLimiter, RATE_LIMITS } from '@/lib/rate-limit';
 import { validateQuery, ValidationError } from '@/lib/validation';
 import { createSSEMessage, createStreamResponse } from '@/lib/streaming';
 import { aiClient } from '@/lib/ai-client';
+import { PLAN_LIMITS } from '@/lib/usage';
+import { ALL_MODELS } from '@/lib/models';
 
 const MAX_COMPLETION_TOKENS = 500;
 
@@ -19,33 +21,31 @@ export async function POST(req: NextRequest) {
     const ipAddress = getIpAddress(req);
     const userAgent = getUserAgent(req);
 
-    // Check rate limit
+    // Check rate limit - all plans now have limits
     const rateLimit = ctx.user.plan === 'STARTER'
       ? RATE_LIMITS.STARTER_MESSAGES
       : ctx.user.plan === 'PROFESSIONAL'
       ? RATE_LIMITS.PROFESSIONAL_MESSAGES
-      : { requests: -1, window: '1h' };
+      : RATE_LIMITS.PROFESSIONAL_MESSAGES; // ENTERPRISE uses same as PRO for hourly, monthly limit enforced separately
 
-    if (rateLimit.requests !== -1) {
-      const rateLimitResult = await rateLimiter.checkLimit(
-        `messages:${ctx.user.id}`,
-        rateLimit
+    const rateLimitResult = await rateLimiter.checkLimit(
+      `messages:${ctx.user.id}`,
+      rateLimit
+    );
+
+    if (!rateLimitResult.allowed) {
+      return new Response(
+        encoder.encode(
+          createSSEMessage({
+            type: 'error',
+            message: 'Rate limit exceeded. Please try again later.',
+          })
+        ),
+        {
+          status: 429,
+          headers: { 'Content-Type': 'text/event-stream' },
+        }
       );
-
-      if (!rateLimitResult.allowed) {
-        return new Response(
-          encoder.encode(
-            createSSEMessage({
-              type: 'error',
-              message: 'Rate limit exceeded. Please upgrade your plan.',
-            })
-          ),
-          {
-            status: 429,
-            headers: { 'Content-Type': 'text/event-stream' },
-          }
-        );
-      }
     }
 
     const { conversationId, message, files } = await req.json();
@@ -122,8 +122,27 @@ export async function POST(req: NextRequest) {
             ? `Previous context:\n${context}\n\nCurrent message:\n${validatedMessage}`
             : validatedMessage;
 
-          // Route to appropriate model
-          const routing = await aiRouter.routeQuery(enhancedMessage);
+          // Filter models based on user's plan tier
+          const allowedTiers = PLAN_LIMITS[ctx.user.plan as keyof typeof PLAN_LIMITS]?.modelTiers || ['FREE'];
+          const availableModels = ALL_MODELS.filter(model =>
+            allowedTiers.includes(model.tier)
+          );
+
+          if (availableModels.length === 0) {
+            controller.enqueue(
+              encoder.encode(
+                createSSEMessage({
+                  type: 'error',
+                  message: 'No models available for your plan. Please upgrade.',
+                })
+              )
+            );
+            controller.close();
+            return;
+          }
+
+          // Route to appropriate model from available models
+          const routing = await aiRouter.routeQuery(enhancedMessage, availableModels);
 
           // Send metadata event
           controller.enqueue(

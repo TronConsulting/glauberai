@@ -4,7 +4,6 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  url      = env("glauber_DATABASE_URL")
 }
 
 enum UserPlan {
@@ -212,4 +211,191 @@ model ApiKey {
 
   @@index([userId])
   @@index([keyHash])
+}
+enum Provider {
+  OPENAI
+  ANTHROPIC
+  GOOGLE
+  COHERE
+  MISTRAL
+  META
+  HUGGINGFACE
+  OLLAMA
+  TOGETHER
+  PERPLEXITY
+  GROQ
+  REPLICATE
+  STABILITY
+  MIDJOURNEY
+  RUNPOD
+  DEEPSEEK
+  XAI
+  FIREWORKS
+  ANYSCALE
+  NVIDIA
+  QWEN
+}
+
+enum ProviderApiKeyStatus {
+  ACTIVE
+  BACKUP
+  EXPIRED
+  REVOKED
+  COMPROMISED
+  DISABLED
+}
+
+model ProviderApiKey {
+  id               String               @id @default(uuid())
+  provider         Provider
+  name             String
+  description      String?
+  keyHash          String               @unique
+  prefix           String
+  status           ProviderApiKeyStatus @default(ACTIVE)
+  expiresAt        DateTime?
+  revokedAt        DateTime?
+  failureCount     Int                  @default(0)
+  consecutiveFailures Int               @default(0)
+  lastFailureAt    DateTime?
+  monthlyLimit     Float                @default(50)
+  monthlyUsage     Float                @default(0)
+  totalUsage       Float                @default(0)
+  lastUsedAt       DateTime?
+  priority         Int                  @default(0)
+  isPrimary        Boolean              @default(false)
+  isBackup         Boolean              @default(false)
+  createdAt        DateTime             @default(now())
+  updatedAt        DateTime             @updatedAt
+
+  usageRecords     ProviderApiKeyUsage[]
+  rotations        ProviderApiKeyRotation[]
+}
+
+model ProviderApiKeyUsage {
+  id               String         @id @default(uuid())
+  providerApiKeyId String
+  provider         Provider
+  model            String
+  tokens           Int            @default(0)
+  cost             Float          @default(0)
+  success          Boolean        @default(true)
+  error            String?
+  requestId        String?
+  userId           String?
+  createdAt        DateTime       @default(now())
+
+  providerApiKey ProviderApiKey @relation(fields: [providerApiKeyId], references: [id], onDelete: Cascade)
+}
+
+model ProviderApiKeyRotation {
+  id                  String         @id @default(uuid())
+  providerApiKeyId    String
+  rotatedToKeyId      String?
+  event               String
+  reason              String?
+  createdAt           DateTime       @default(now())
+
+  providerApiKey ProviderApiKey @relation(fields: [providerApiKeyId], references: [id], onDelete: Cascade)
+}
+
+// User Model Preferences - Track which models users prefer for different query types
+model UserModelPreference {
+  id                String   @id @default(uuid())
+  userId            String
+  modelId           String
+  queryType         String   // CHAT, CODE, VISION, REASONING, CREATIVE, etc.
+  successCount      Int      @default(0)
+  failureCount      Int      @default(0)
+  totalAttempts     Int      @default(0)
+  avgResponseTime   Int      @default(0) // milliseconds
+  avgCost           Float    @default(0)
+  totalCost         Float    @default(0)
+  lastUsedAt        DateTime?
+  preferenceScore   Float    @default(0.5) // 0-1, based on success rate
+  confidenceLevel   Float    @default(0) // how confident we are in this preference
+  embedding         Float[]? // semantic embedding for this user+model combo
+  metadata          Json?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@unique([userId, modelId, queryType])
+  @@index([userId, preferenceScore])
+  @@index([modelId, preferenceScore])
+  @@index([userId, lastUsedAt])
+}
+
+// Model Performance Metrics - Aggregate performance data for models
+model ModelPerformanceMetric {
+  id                String   @id @default(uuid())
+  modelId           String
+  provider          String
+  queryType         String   // CHAT, CODE, VISION, REASONING, CREATIVE
+  period            String   // hourly, daily, weekly
+  periodStart       DateTime
+  periodEnd         DateTime
+  totalRequests     Int      @default(0)
+  successCount      Int      @default(0)
+  failureCount      Int      @default(0)
+  avgResponseTime   Int      @default(0) // milliseconds
+  minResponseTime   Int?
+  maxResponseTime   Int?
+  avgTokensUsed     Int      @default(0)
+  totalTokensUsed   Int      @default(0)
+  avgCost           Float    @default(0)
+  totalCost         Float    @default(0)
+  errorRate         Float    @default(0) // 0-1
+  healthScore       Float    @default(1) // 0-1, calculated from error rate and latency
+  metadata          Json?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@unique([modelId, queryType, period, periodStart])
+  @@index([modelId, period])
+  @@index([period, healthScore])
+  @@index([periodEnd])
+}
+
+// Query Embeddings Cache - Store embeddings for frequently asked queries
+model QueryEmbeddingCache {
+  id          String   @id @default(uuid())
+  queryHash   String   @unique
+  query       String   @db.Text
+  embedding   Float[]  // The semantic embedding vector
+  queryType   String?  // CHAT, CODE, VISION, etc.
+  confidence  Float    @default(0.8) // confidence in this embedding
+  usageCount  Int      @default(0) // how many times this query was used
+  lastUsedAt  DateTime?
+  expiresAt   DateTime // TTL for cache invalidation
+  createdAt   DateTime @default(now())
+
+  @@index([queryHash])
+  @@index([expiresAt])
+  @@index([usageCount])
+}
+
+// Model Usage Analytics - Detailed analytics for model usage patterns
+model ModelUsageAnalytics {
+  id                String   @id @default(uuid())
+  userId            String
+  modelId           String
+  provider          String
+  queryType         String
+  queryComplexity   String   // simple, medium, complex
+  responseTime      Int      // milliseconds
+  tokensUsed        Int
+  cost              Float
+  success           Boolean
+  errorMessage      String?
+  feedbackScore     Int?     // 1-5 rating from user
+  semanticScore     Float?   // how well the model matched the query semantically
+  preferenceScore   Float?   // how well this matches user's historical preference
+  routingDecision   Json?    // metadata about routing decision
+  metadata          Json?
+  createdAt         DateTime @default(now())
+
+  @@index([userId, modelId])
+  @@index([modelId, createdAt])
+  @@index([provider, success, createdAt])
+  @@index([userId, createdAt])
 }

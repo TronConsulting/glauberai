@@ -15,15 +15,20 @@ import {
 } from './dynamic-model-registry';
 
 export interface QueryAnalysis {
-  type: ModelCategory;
-  complexity: 'simple' | 'medium' | 'complex';
-  keywords: string[];
-  requiresCode: boolean;
-  requiresVision: boolean;
-  isQuestion: boolean;
-  estimatedTokens: number;
-  urgency: 'low' | 'high';
-  language: string;
+   primaryType: ModelCategory;
+   secondaryTypes: ModelCategory[];
+   complexity: 'simple' | 'medium' | 'complex';
+   keywords: string[];
+   requiresCode: boolean;
+   requiresVision: boolean;
+   isQuestion: boolean;
+   estimatedTokens: number;
+   urgency: 'low' | 'high';
+   language: string;
+   // Additional capability flags for more precise routing
+   requiresReasoning: boolean;
+   requiresCreative: boolean;
+   requiresFast: boolean;
 }
 
 export interface RoutingResult {
@@ -66,97 +71,147 @@ export class IntelligentAIRouter {
    */
   public analyzeQuery(query: string): QueryAnalysis {
     const queryLower = query.toLowerCase();
-    const words = query.split(/\\s+/);
-    const estimatedTokens = Math.ceil(words.length * 1.3);
+    const normalizedQuery = queryLower.replace(/[^a-z0-9\s]/gi, ' ');
+    const words = normalizedQuery.split(/\s+/).filter(Boolean);
+    const estimatedTokens = Math.ceil(words.length * 1.2);
 
-    // Detect language
     const language = this.detectLanguage(query);
 
-    // Extract keywords
-    const keywords = words
+    const keywordCandidates = words
       .filter(word => word.length > 3)
-      .filter(word => /^[a-zA-Z]+$/.test(word))
-      .slice(0, 10);
+      .filter(word => /^[a-zA-Z]+$/.test(word));
 
-    // Detect query type and requirements
-    let type: ModelCategory = 'CHAT';
-    let requiresCode = false;
-    let requiresVision = false;
-    let isQuestion = false;
+    const keywordCounts = keywordCandidates.reduce<Record<string, number>>((acc, word) => {
+      acc[word] = (acc[word] || 0) + 1;
+      return acc;
+    }, {});
 
-    // Code detection
-    const codeKeywords = [
-      'code', 'function', 'class', 'variable', 'algorithm', 'program', 'script',
-      'debug', 'implement', 'develop', 'programming', 'software', 'api', 'database'
-    ];
-    const codeLanguages = [
-      'python', 'javascript', 'java', 'html', 'css', 'sql', 'react', 'node',
-      'typescript', 'go', 'rust', 'c++', 'php', 'ruby', 'swift', 'kotlin'
-    ];
+    const keywords = Object.entries(keywordCounts)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 10)
+      .map(([word]) => word);
 
-    if (codeKeywords.some(kw => queryLower.includes(kw)) ||
-      codeLanguages.some(lang => queryLower.includes(lang))) {
-      type = 'CODE';
-      requiresCode = true;
-    }
+    const intentPatterns: Record<string, RegExp[]> = {
+      code: [
+        /\bcode\b/, /\bfunction\b/, /\bclass\b/, /\bdebug\b/, /\bprogram\b/, /\bscript\b/,
+        /\bcompile\b/, /\bpython\b/, /\bjavascript\b/, /\btypescript\b/, /\brust\b/, /\bjava\b/, /\bgo\b/
+      ],
+      reasoning: [
+        /\banalyze\b/, /\bevaluate\b/, /\bcompare\b/, /\bcritique\b/, /\bassess\b/, /\bwhy\b/,
+        /\blogic\b/, /\bstrategy\b/, /\bdecision\b/, /\bplanning\b/, /\bdesign\b/
+      ],
+      creative: [
+        /\bwrite\b/, /\bcreate\b/, /\bstory\b/, /\bpoem\b/, /\bmarketing\b/, /\bblog\b/,
+        /\barticle\b/, /\bcopy\b/, /\bgenerate\b/, /\bcreative\b/
+      ],
+      vision: [
+        /\bimage\b/, /\bpicture\b/, /\bphoto\b/, /\bvisual\b/, /\bscreenshot\b/, /\bdiagram\b/,
+        /\banalyze image\b/, /\bvision\b/, /\bmultimodal\b/
+      ],
+      summarize: [
+        /\bsummariz(e|ation)\b/, /\bsummary\b/, /\bcondense\b/, /\bshorten\b/, /\brecap\b/, /\babstract\b/
+      ],
+      translate: [
+        /\btranslate\b/, /\btranslation\b/, /\blanguage\b/, /\blocalize\b/, /\bmultilingual\b/
+      ],
+      explain: [
+        /\bexplain\b/, /\bwalk through\b/, /\bdescribe\b/, /\bteach\b/, /\bdemonstrate\b/
+      ],
+      math: [
+        /\bcalculate\b/, /\bsolve\b/, /\bformula\b/, /\balgebra\b/, /\bstatistics\b/, /\bprobability\b/, /\bmath\b/
+      ],
+      data: [
+        /\bdata\b/, /\bchart\b/, /\bgraph\b/, /\btable\b/, /\bdatabase\b/, /\bsql\b/, /\bspreadsheet\b/
+      ],
+      planning: [
+        /\bplan\b/, /\broadmap\b/, /\bworkflow\b/, /\bproject\b/, /\bstrategy\b/, /\borganize\b/, /\bschedule\b/
+      ],
+      research: [
+        /\bresearch\b/, /\binvestigate\b/, /\banalyze\b/, /\bstudy\b/, /\bexplore\b/, /\bdiscover\b/
+      ],
+      teaching: [
+        /\bteach\b/, /\blearn\b/, /\btutorial\b/, /\bguide\b/, /\bexplain\b/, /\bdemonstrate\b/, /\blearning\b/
+      ]
+    };
 
-    // Vision detection
-    const visionKeywords = [
-      'image', 'picture', 'photo', 'visual', 'see', 'look', 'analyze image',
-      'describe image', 'what do you see', 'screenshot', 'diagram'
-    ];
-    if (visionKeywords.some(vw => queryLower.includes(vw))) {
-      type = 'VISION';
-      requiresVision = true;
-    }
+    const intentTags = Object.entries(intentPatterns)
+      .filter(([, patterns]) => patterns.some(pattern => pattern.test(queryLower)))
+      .map(([tag]) => tag);
 
-    // Question detection
+    const requiresCode = intentTags.includes('code');
+    const requiresVision = intentTags.includes('vision') || intentTags.includes('multimodal');
+    const requiresReasoning = intentTags.includes('reasoning') || intentTags.includes('math') || intentTags.includes('planning') || intentTags.includes('research') || intentTags.includes('analyze');
+    const requiresCreative = intentTags.includes('creative') || intentTags.includes('teaching') || intentTags.includes('write');
+    const requiresFast = urgency === 'high' || intentTags.includes('fast') || intentTags.includes('quick');
     const questionWords = ['what', 'how', 'why', 'when', 'where', 'who', 'which', 'can', 'should', 'will'];
-    if (questionWords.some(qw => queryLower.startsWith(qw)) || queryLower.includes('?')) {
-      isQuestion = true;
+    const isQuestion = questionWords.some(qw => queryLower.startsWith(`${qw} `)) || queryLower.includes('?');
+
+    const subtasks: string[] = [];
+    if (/(write|generate|create).*(and explain|and document|with explanation|and comment)/.test(queryLower) || /\bexplain.*code\b/.test(queryLower)) {
+      subtasks.push('code_explain');
+    }
+    if (/(summarize|summary|recap|condense).*?(article|text|document|paper)?/.test(queryLower)) {
+      subtasks.push('summarize');
+    }
+    if (/(translate|translation|localize)/.test(queryLower)) {
+      subtasks.push('translate');
+    }
+    if (/(debug|fix|troubleshoot).*?(code|program|script)/.test(queryLower)) {
+      subtasks.push('debug_code');
+    }
+    if (/(review|analyze|audit).*?(code|program|script)/.test(queryLower)) {
+      subtasks.push('code_review');
+    }
+    if (/(optimize|improve|refactor).*?(code|performance|speed)/.test(queryLower)) {
+      subtasks.push('optimize_code');
     }
 
-    // Reasoning detection
-    const reasoningKeywords = [
-      'analyze', 'explain', 'compare', 'evaluate', 'assess', 'critique',
-      'reasoning', 'logic', 'philosophy', 'ethics', 'complex'
-    ];
-    if (reasoningKeywords.some(rw => queryLower.includes(rw))) {
-      type = 'REASONING';
+    // Determine primary and secondary types
+    let primaryType: ModelCategory = 'CHAT';
+    const secondaryTypes: ModelCategory[] = [];
+
+    if (requiresCode) {
+      primaryType = 'CODE';
+      if (requiresReasoning) secondaryTypes.push('REASONING');
+    } else if (requiresVision) {
+      primaryType = 'VISION';
+      if (intentTags.includes('multimodal')) secondaryTypes.push('MULTIMODAL');
+    } else if (intentTags.includes('multimodal')) {
+      primaryType = 'MULTIMODAL';
+    } else if (requiresReasoning) {
+      primaryType = 'REASONING';
+    } else if (requiresCreative) {
+      primaryType = 'CREATIVE';
     }
 
-    // Creative detection
-    const creativeKeywords = [
-      'write', 'create', 'story', 'poem', 'creative', 'fiction', 'blog',
-      'article', 'content', 'marketing', 'generate'
-    ];
-    if (creativeKeywords.some(cw => queryLower.includes(cw)) && !requiresCode) {
-      type = 'CREATIVE';
+    // Add secondary types for complex queries
+    if (intentTags.length >= 2) {
+      if (intentTags.includes('summarize') && !secondaryTypes.includes('REASONING')) secondaryTypes.push('REASONING');
+      if (intentTags.includes('translate') && !secondaryTypes.includes('REASONING')) secondaryTypes.push('REASONING');
     }
 
-    // Multimodal detection
-    if (requiresVision || queryLower.includes('multimodal')) {
-      type = 'MULTIMODAL';
-    }
-
-    // Complexity assessment
     let complexity: QueryAnalysis['complexity'] = 'simple';
-    if (query.length > 500 || words.length > 100) {
+    if (query.length > 450 || words.length > 80 || subtasks.length > 0 || intentTags.length >= 3) {
       complexity = 'complex';
-    } else if (query.length > 100 || words.length > 25) {
+    } else if (query.length > 120 || words.length > 25) {
       complexity = 'medium';
     }
 
-    // Urgency detection
-    const urgentWords = ['urgent', 'quick', 'fast', 'asap', 'immediately', 'now'];
+    const urgentWords = ['urgent', 'quick', 'fast', 'asap', 'immediately', 'now', 'as soon as possible'];
     const urgency = urgentWords.some(uw => queryLower.includes(uw)) ? 'high' : 'low';
 
     return {
-      type,
+      primaryType,
+      secondaryTypes,
       complexity,
       keywords,
+      intentTags,
+      subtasks,
       requiresCode,
       requiresVision,
+      requiresReasoning,
+      requiresCreative,
+      requiresFast,
       isQuestion,
       estimatedTokens,
       urgency,
@@ -443,13 +498,14 @@ export class IntelligentAIRouter {
       preferFree: constraints.preferFree,
       requiresVision: analysis.requiresVision,
       requiresCode: analysis.requiresCode,
+      requiresReasoning: analysis.requiresReasoning,
+      requiresCreative: analysis.requiresCreative,
+      requiresSpeed: constraints.requiresSpeed || analysis.requiresFast
       requiresSpeed: constraints.requiresSpeed || analysis.urgency === 'high'
     };
 
-    // Use provided models or get all from manager
     const modelsToSearch = availableModels || modelManager.getAllModels();
 
-    // Filter models by preferences
     const candidateModels = modelsToSearch.filter(m =>
       (!preferences.maxCost || m.costPer1kTokens <= preferences.maxCost) &&
       (!preferences.requiresVision || m.supportsVision) &&
@@ -461,31 +517,43 @@ export class IntelligentAIRouter {
       return null;
     }
 
-    // First try to find model matching category
-    let model = candidateModels.find(m => m.category === analysis.type);
+    const strengthScore = (model: Model): number => {
+      let score = 0;
+      const strengths = model.strengths.map(s => s.toLowerCase());
+      const matches = (pattern: RegExp): boolean => strengths.some(str => pattern.test(str));
 
-    // If no exact match, try fallback categories
-    if (!model) {
-      const fallbackCategories = this.getFallbackCategories(analysis.type);
-      for (const category of fallbackCategories) {
-        model = candidateModels.find(m => m.category === category);
-        if (model) break;
-      }
+      if (analysis.requiresCode && model.supportsCode) score += 22;
+      if (analysis.requiresVision && model.supportsVision) score += 22;
+      if (analysis.requiresReasoning && matches(/reasoning|analysis|chain-of-thought|complex|math|science/)) score += 20;
+      if (analysis.requiresCreative && matches(/creative|story|marketing|copy|high-quality/)) score += 18;
+      if (analysis.subtasks.includes('code_explain') && matches(/reasoning|instruction|analysis/)) score += 16;
+      if (analysis.subtasks.includes('debug_code') && matches(/reasoning|debugging|analysis|code/)) score += 16;
+      if (analysis.subtasks.includes('code_review') && matches(/reasoning|analysis|code|quality/)) score += 16;
+      if (analysis.subtasks.includes('optimize_code') && matches(/reasoning|optimization|efficiency|code/)) score += 16;
+      if (analysis.intentTags.includes('creative') && matches(/creative|story|marketing|copy|high-quality/)) score += 18;
+      if (analysis.intentTags.includes('reasoning') && matches(/reasoning|analysis|chain-of-thought|complex|math|science/)) score += 18;
+      if (analysis.intentTags.includes('vision') && matches(/vision|image|visual|multimodal|document-understanding/)) score += 18;
+      if (analysis.intentTags.includes('summarize') && matches(/concise|summary|instruction|analysis/)) score += 14;
+      if (analysis.intentTags.includes('translate') && matches(/multilingual|translation|language/)) score += 14;
+      if (analysis.intentTags.includes('math') && matches(/math|algorithms|science|complex|reasoning/)) score += 14;
+      if (analysis.intentTags.includes('planning') && matches(/strategy|workflow|design|planning|organization/)) score += 12;
+      if (analysis.intentTags.includes('research') && matches(/research|analysis|investigation|exploration/)) score += 14;
+      if (analysis.intentTags.includes('teaching') && matches(/teaching|instruction|explanation|education/)) score += 12;
+      if (model.category === analysis.type) score += 12;
+      if (preferences.requiresSpeed && (model.category === 'FAST' || matches(/fast|ultra-fast|real-time|efficient/))) score += 10;
+      if (preferences.preferFree && model.costPer1kTokens === 0) score += 10;
+      score += Math.max(0, 10 - model.priority);
+      return score;
+    };
+
+    const candidatesWithScore = candidateModels.map(m => ({ model: m, score: strengthScore(m) + (100 - m.priority) * 0.5 }));
+    candidatesWithScore.sort((a, b) => b.score - a.score);
+
+    if (candidatesWithScore[0]) {
+      return candidatesWithScore[0].model;
     }
 
-    // If still no match, pick best available
-    if (!model) {
-      // Prefer free models if requested
-      if (preferences.preferFree) {
-        model = candidateModels.find(m => m.costPer1kTokens === 0) || candidateModels[0];
-      } else {
-        // Sort by priority and pick best
-        const sorted = candidateModels.sort((a, b) => a.priority - b.priority);
-        model = sorted[0];
-      }
-    }
-
-    return model || null;
+    return candidateModels[0] || null;
   }
 
   /**
@@ -548,24 +616,36 @@ export class IntelligentAIRouter {
   private generateReasoning(model: Model, analysis: QueryAnalysis): string {
     const reasons: string[] = [];
 
-    if (analysis.type === 'CODE' && model.supportsCode) {
-      reasons.push('optimized for code generation');
+    if (analysis.requiresCode && model.supportsCode) {
+      reasons.push('strong code generation capabilities');
     }
 
     if (analysis.requiresVision && model.supportsVision) {
-      reasons.push('supports image analysis');
+      reasons.push('specialized for vision and multimodal tasks');
     }
 
-    if (analysis.complexity === 'complex' && model.modelSize?.includes('70B')) {
-      reasons.push('large model for complex reasoning');
+    if (analysis.subtasks.includes('code_explain') && model.strengths.some(s => /reasoning|instruction/.test(s.toLowerCase()))) {
+      reasons.push('well suited for code explanation and reasoning');
+    }
+
+    if (analysis.intentTags.includes('creative') && model.strengths.some(s => /creative|story|marketing|copy/.test(s.toLowerCase()))) {
+      reasons.push('optimized for creative generation');
+    }
+
+    if (analysis.intentTags.includes('reasoning') && model.strengths.some(s => /reasoning|analysis|chain-of-thought|complex/.test(s.toLowerCase()))) {
+      reasons.push('strong reasoning and analysis ability');
     }
 
     if (analysis.urgency === 'high' && (model.category === 'FAST' || model.strengths.includes('fast'))) {
-      reasons.push('optimized for speed');
+      reasons.push('prioritizes speed');
+    }
+
+    if (analysis.intentTags.includes('translate') && model.strengths.some(s => /multilingual|translation/.test(s.toLowerCase()))) {
+      reasons.push('has translation strengths');
     }
 
     if (model.costPer1kTokens === 0) {
-      reasons.push('free model');
+      reasons.push('available at no token cost');
     }
 
     if (reasons.length === 0) {
@@ -579,16 +659,25 @@ export class IntelligentAIRouter {
    * Calculate confidence score
    */
   private calculateConfidence(model: Model, analysis: QueryAnalysis): number {
-    let confidence = 0.7; // Base confidence
+    let confidence = 0.7;
 
-    // Boost confidence for exact matches
     if (model.category === analysis.type) confidence += 0.2;
-    if (analysis.requiresCode && model.supportsCode) confidence += 0.1;
-    if (analysis.requiresVision && model.supportsVision) confidence += 0.1;
+    if (analysis.requiresCode && model.supportsCode) confidence += 0.15;
+    if (analysis.requiresVision && model.supportsVision) confidence += 0.15;
+    if (analysis.subtasks.includes('code_explain') && model.strengths.some(s => /reasoning|instruction/.test(s.toLowerCase()))) {
+      confidence += 0.1;
+    }
 
-    // Reduce confidence for mismatches
-    if (analysis.requiresCode && !model.supportsCode) confidence -= 0.3;
-    if (analysis.requiresVision && !model.supportsVision) confidence -= 0.3;
+    if (analysis.intentTags.includes('creative') && model.strengths.some(s => /creative|story|marketing|copy/.test(s.toLowerCase()))) {
+      confidence += 0.1;
+    }
+
+    if (analysis.intentTags.includes('reasoning') && model.strengths.some(s => /reasoning|analysis|chain-of-thought|complex/.test(s.toLowerCase()))) {
+      confidence += 0.1;
+    }
+
+    if (analysis.requiresCode && !model.supportsCode) confidence -= 0.25;
+    if (analysis.requiresVision && !model.supportsVision) confidence -= 0.25;
 
     return Math.min(1.0, Math.max(0.1, confidence));
   }

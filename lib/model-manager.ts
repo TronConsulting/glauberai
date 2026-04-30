@@ -55,20 +55,38 @@ export class ModelManager {
    */
   private checkApiKeyAvailability(): void {
     this.providerStatus.clear();
-    
+
     for (const [provider, envVar] of Object.entries(API_KEY_MAPPINGS)) {
-      const apiKey = process.env[envVar];
-      const hasKey = Boolean(apiKey && apiKey.length > 0 && !apiKey.includes('your_') && !apiKey.includes('_here'));
-      
-      this.providerStatus.set(provider as ModelProvider, hasKey);
-      
-      if (hasKey) {
-        console.log(`✅ ${provider.toUpperCase()} API key detected`);
+      // Check for multiple keys per provider (e.g., OPENAI_API_KEY_1, OPENAI_API_KEY_2, etc.)
+      const apiKeys: string[] = [];
+      let keyIndex = 1;
+
+      // Check for single key first (backward compatibility)
+      const singleKey = process.env[envVar];
+      if (singleKey && singleKey.length > 0 && !singleKey.includes('your_') && !singleKey.includes('_here')) {
+        apiKeys.push(singleKey);
+      }
+
+      // Check for numbered keys
+      while (true) {
+        const numberedKey = process.env[`${envVar}_${keyIndex}`];
+        if (!numberedKey || numberedKey.length === 0 || numberedKey.includes('your_') || numberedKey.includes('_here')) {
+          break;
+        }
+        apiKeys.push(numberedKey);
+        keyIndex++;
+      }
+
+      const hasKeys = apiKeys.length > 0;
+      this.providerStatus.set(provider as ModelProvider, hasKeys);
+
+      if (hasKeys) {
+        console.log(`✅ ${provider.toUpperCase()} API keys detected: ${apiKeys.length} key(s)`);
       } else {
-        console.log(`❌ ${provider.toUpperCase()} API key not found or invalid`);
+        console.log(`❌ ${provider.toUpperCase()} API keys not found or invalid`);
       }
     }
-    
+
     this.lastApiKeyCheck = Date.now();
   }
 
@@ -78,19 +96,41 @@ export class ModelManager {
   private cacheAvailableModels(): void {
     this.availableModels = [];
     this.modelCache.clear();
-    
+
     for (const model of ALL_MODELS) {
       const validation = this.validateModel(model);
-      
+
       if (validation.isValid) {
-        // Add API key to model if available
-        const apiKey = this.getApiKeyForProvider(model.provider);
-        const modelWithKey = apiKey ? { ...model, apiKey } : model;
-        
-        this.availableModels.push(modelWithKey);
-        this.modelCache.set(model.id, modelWithKey);
-        
-        console.log(`📦 Cached model: ${model.name} (${model.provider})`);
+        // Get all available API keys for this provider
+        const apiKeys = this.getApiKeysForProvider(model.provider);
+
+        if (apiKeys.length > 0) {
+          // Create multiple instances for providers with multiple keys
+          apiKeys.forEach((apiKey, index) => {
+            const modelId = apiKeys.length > 1 ? `${model.id}-key${index + 1}` : model.id;
+            const modelName = apiKeys.length > 1 ? `${model.name} (Key ${index + 1})` : model.name;
+
+            const modelWithKey = {
+              ...model,
+              id: modelId,
+              name: modelName,
+              apiKey,
+              apiKeys: apiKeys.length > 1 ? apiKeys : undefined,
+              currentKeyIndex: index,
+              keyRotationEnabled: apiKeys.length > 1
+            };
+
+            this.availableModels.push(modelWithKey);
+            this.modelCache.set(modelId, modelWithKey);
+
+            console.log(`📦 Cached model: ${modelName} (${model.provider})`);
+          });
+        } else if (model.costPer1kTokens === 0) {
+          // Free models don't need API keys
+          this.availableModels.push(model);
+          this.modelCache.set(model.id, model);
+          console.log(`📦 Cached free model: ${model.name} (${model.provider})`);
+        }
       } else {
         console.log(`❌ Skipped model: ${model.name} - ${validation.errors.join(', ')}`);
       }
@@ -101,11 +141,30 @@ export class ModelManager {
   }
 
   /**
-   * Get API key for a specific provider
+   * Get API keys for a specific provider (supports multiple keys)
    */
-  private getApiKeyForProvider(provider: ModelProvider): string | undefined {
+  private getApiKeysForProvider(provider: ModelProvider): string[] {
     const envVar = API_KEY_MAPPINGS[provider];
-    return envVar ? process.env[envVar] : undefined;
+    const apiKeys: string[] = [];
+
+    // Check for single key first (backward compatibility)
+    const singleKey = process.env[envVar];
+    if (singleKey && singleKey.length > 0 && !singleKey.includes('your_') && !singleKey.includes('_here')) {
+      apiKeys.push(singleKey);
+    }
+
+    // Check for numbered keys
+    let keyIndex = 1;
+    while (true) {
+      const numberedKey = process.env[`${envVar}_${keyIndex}`];
+      if (!numberedKey || numberedKey.length === 0 || numberedKey.includes('your_') || numberedKey.includes('_here')) {
+        break;
+      }
+      apiKeys.push(numberedKey);
+      keyIndex++;
+    }
+
+    return apiKeys;
   }
 
   /**

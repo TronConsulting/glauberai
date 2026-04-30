@@ -198,17 +198,15 @@ export class IntelligentModelRouter {
     reasoning: string[]
   ): Array<DynamicModel & { performance: ModelPerformanceMetrics }> {
     
-    // Filter out models with poor performance
+    // Filter out models with poor performance using a lower sample threshold for faster adaptation
     const filtered = candidates.filter(m => {
       const perf = m.performance;
       
-      // Must meet minimum success rate
-      if (perf.totalRequests > 5 && perf.successRate < m.minSuccessRate) {
+      if (perf.totalRequests > 3 && perf.successRate < Math.max(m.minSuccessRate * 0.95, 0.5)) {
         return false;
       }
       
-      // Must not exceed maximum latency
-      if (perf.totalRequests > 0 && perf.averageLatency > m.maxLatencyMs) {
+      if (perf.totalRequests > 2 && perf.averageLatency > Math.max(m.maxLatencyMs * 1.2, 5000)) {
         return false;
       }
       
@@ -303,48 +301,69 @@ export class IntelligentModelRouter {
     config: IntelligentRoutingConfig
   ): number {
     let score = 0;
-    
-    // Base priority score (inverted, lower priority number = higher score)
-    score += (100 - model.priority) * 0.1;
-    
-    // Performance score
+    const queryTags = this.extractQueryTags(query);
+    const strengths = model.strengths.map(s => s.toLowerCase());
+
+    score += (100 - model.priority) * 0.12;
+
     if (config.usePerformanceMetrics) {
-      score += model.performance.successRate * 30;
-      
-      // Latency score (faster is better)
+      score += model.performance.successRate * 25;
       if (model.performance.totalRequests > 0) {
-        const latencyScore = Math.max(0, 30 - (model.performance.averageLatency / 1000));
+        const latencyScore = Math.max(0, 25 - (model.performance.averageLatency / 1000));
         score += latencyScore;
       } else {
-        score += 15; // Neutral score for untested models
+        score += 12;
       }
     }
-    
-    // Cost efficiency score
+
     if (config.preferCostEfficient) {
       score += model.performance.costEfficiency * 20;
     }
-    
-    // Quality score
+
     if (config.prioritizeQuality) {
       score += model.performance.responseQuality * 20;
     }
-    
-    // Recent usage bonus (models that have been working well recently)
+
     const hoursSinceLastUse = (Date.now() - model.performance.lastUsed) / (1000 * 60 * 60);
     if (hoursSinceLastUse < 24) {
       score += Math.max(0, 10 - hoursSinceLastUse);
     }
-    
-    // Capability matching
-    if (query.toLowerCase().includes('code') && model.supportsCode) score += 15;
-    if (query.toLowerCase().includes('image') && model.supportsVision) score += 15;
+
+    const addStrength = (patterns: RegExp[], weight: number) => {
+      if (patterns.some(pattern => strengths.some(str => pattern.test(str)))) {
+        score += weight;
+      }
+    };
+
+    if (queryTags.includes('code')) {
+      addStrength([/code|programming|debug|software|instruction/], 18);
+      if (model.supportsCode) score += 15;
+    }
+    if (queryTags.includes('vision')) {
+      addStrength([/vision|image|visual|multimodal|photo/], 18);
+      if (model.supportsVision) score += 15;
+    }
+    if (queryTags.includes('reasoning')) {
+      addStrength([/reasoning|analysis|complex|chain-of-thought|math/], 18);
+    }
+    if (queryTags.includes('creative')) {
+      addStrength([/creative|story|marketing|copy|high-quality/], 16);
+    }
+    if (queryTags.includes('summarize')) {
+      addStrength([/concise|summary|instruction|analysis/], 12);
+    }
+    if (queryTags.includes('translate')) {
+      addStrength([/multilingual|translation|language/], 12);
+    }
+    if (queryTags.includes('math')) {
+      addStrength([/math|algorithms|science|statistics/], 12);
+    }
+
     if (query.toLowerCase().includes('fast') && model.category === 'FAST') score += 10;
-    
-    // Load balancing weight
+
     const weight = this.loadBalancingWeights.get(model.id) || 1;
     score *= weight;
-    
+
     return score;
   }
 
@@ -535,6 +554,28 @@ export class IntelligentModelRouter {
     else if (model.modelSize?.includes('7B')) baseLatency *= 1.1;
     
     return baseLatency;
+  }
+
+  private extractQueryTags(query: string): string[] {
+    const text = query.toLowerCase();
+    const tags: string[] = [];
+
+    const test = (tag: string, pattern: RegExp) => {
+      if (pattern.test(text)) tags.push(tag);
+    };
+
+    test('code', /\b(code|function|class|debug|program|script|python|javascript|typescript|java|rust|go|swift|kotlin)\b/);
+    test('vision', /\b(image|photo|picture|visual|screenshot|diagram|vision|visionary|multimodal)\b/);
+    test('reasoning', /\b(analyze|evaluate|compare|critique|assess|why|strategy|planning|logic|reasoning|decision)\b/);
+    test('creative', /\b(write|create|story|poem|marketing|blog|article|copy|generate|creative)\b/);
+    test('summarize', /\b(summariz(e|ation)|summary|condense|recap|abstract)\b/);
+    test('translate', /\b(translate|translation|language|localize|multilingual)\b/);
+    test('math', /\b(calculate|solve|math|statistics|probability|formula|algebra|geometry|statistics)\b/);
+    test('fast', /\b(urgent|quick|fast|asap|immediately|now|real-time)\b/);
+    test('explain', /\b(explain|walk through|teach|describe|demonstrate)\b/);
+    test('planning', /\b(plan|roadmap|workflow|project|strategy|design)\b/);
+
+    return Array.from(new Set(tags));
   }
 
   /**

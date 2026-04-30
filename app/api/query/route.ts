@@ -142,7 +142,7 @@ export async function POST(req: NextRequest) {
     const recentHistory = await prisma.request.findMany({
       where: { userId: user.id, status: 'completed' },
       orderBy: { createdAt: 'desc' },
-      take: 3,
+      take: 10, // Increased from 3 to 10 for better context
       select: {
         query: true,
         response: true,

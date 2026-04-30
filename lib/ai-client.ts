@@ -36,7 +36,7 @@ export class UniversalAIClient {
   }
 
   /**
-   * Call a specific model with a prompt
+   * Call a specific model with a prompt (with automatic key rotation on failure)
    */
   public async callModel(
     model: Model,
@@ -54,8 +54,83 @@ export class UniversalAIClient {
       }
 
       let response: AIResponse;
+      let lastError: Error | null = null;
 
-      // Route to appropriate provider
+      // Try with current key first
+      try {
+        response = await this.callModelWithProvider(model, prompt, options);
+      } catch (error) {
+        lastError = error as Error;
+
+        // If model has multiple keys, try rotating to next key
+        if (model.apiKeys && model.apiKeys.length > 1 && model.keyRotationEnabled) {
+          console.warn(`⚠️ Primary key failed for ${model.name}, attempting key rotation...`);
+
+          for (let i = 0; i < model.apiKeys.length; i++) {
+            const nextKeyIndex = (model.currentKeyIndex + i + 1) % model.apiKeys.length;
+            const nextKey = model.apiKeys[nextKeyIndex];
+
+            try {
+              const rotatedModel = { ...model, apiKey: nextKey, currentKeyIndex: nextKeyIndex };
+              response = await this.callModelWithProvider(rotatedModel, prompt, options);
+
+              // Success! Update the model's current key index
+              model.currentKeyIndex = nextKeyIndex;
+              console.log(`✅ Key rotation successful for ${model.name} (using key ${nextKeyIndex + 1})`);
+              break;
+            } catch (rotationError) {
+              console.warn(`❌ Key ${nextKeyIndex + 1} also failed for ${model.name}`);
+              lastError = rotationError as Error;
+            }
+          }
+        }
+
+        if (!response) {
+          throw lastError || new Error('All API keys failed');
+        }
+      }
+
+      // Cache successful response
+      if (response.success && this.responseCache.size < this.MAX_CACHE_SIZE) {
+        this.responseCache.set(cacheKey, { ...response, latency: Date.now() - startTime });
+      }
+
+      return { ...response, latency: Date.now() - startTime };
+
+    } catch (error) {
+      return {
+        content: '',
+        model: model.name,
+        provider: model.provider,
+        tokens: 0,
+        cost: 0,
+        latency: Date.now() - startTime,
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      };
+    }
+  }
+
+  /**
+   * Call model with specific provider (internal method)
+   */
+  private async callModelWithProvider(
+    model: Model,
+    prompt: string,
+    options: AIOptions
+  ): Promise<AIResponse> {
+    try {
+      const startTime = Date.now();
+      const cacheKey = this.getCacheKey(model.id, prompt, options);
+
+      // Check cache first
+      const cachedResponse = this.responseCache.get(cacheKey);
+      if (cachedResponse && (Date.now() - cachedResponse.timestamp) < this.CACHE_DURATION) {
+        return { ...cachedResponse.response, latency: Date.now() - startTime };
+      }
+
+      let response: AIResponse;
+
       switch (model.provider) {
         case 'openai':
           response = await this.callOpenAI(model, prompt, options);
@@ -106,6 +181,7 @@ export class UniversalAIClient {
 
       return response;
     } catch (error) {
+      const startTime = Date.now();
       return {
         content: '',
         model: model.name,

@@ -1,5 +1,6 @@
 import { Model } from './models';
 import { modelManager } from './model-manager';
+import { intelligentKeyManager } from './intelligent-key-manager';
 
 export interface AIOptions {
   maxTokens?: number;
@@ -43,43 +44,196 @@ export class UniversalAIClient {
     prompt: string,
     options: AIOptions = {}
   ): Promise<AIResponse> {
+    // For models with multiple keys, let the router handle key selection at a higher level
+    // For single-key models, use direct call
+    if (!model.apiKeys || model.apiKeys.length <= 1) {
+      return this.callModelWithKey(model, model.apiKey, prompt, options);
+    }
+
+    // For multi-key models, get best key and try it
+    const keyIndex = intelligentKeyManager.getBestKeyIndex(model.id);
+    const selectedKey = model.apiKeys[keyIndex];
+    
+    const response = await this.callModelWithKey(
+      { ...model, currentKeyIndex: keyIndex },
+      selectedKey,
+      prompt,
+      options
+    );
+
+    if (response.success) {
+      intelligentKeyManager.recordSuccess(model.id, keyIndex, response.latency);
+      return response;
+    }
+
+    // Classify error and record failure
+    const errorType = this.classifyQuickError(response.error || 'Unknown error');
+    intelligentKeyManager.recordFailure(model.id, keyIndex, errorType);
+
+    return response;
+  }
+
+  /**
+   * Call model with a specific API key (internal use)
+   */
+  private async callModelWithKey(
+    model: Model,
+    apiKey: string,
+    prompt: string,
+    options: AIOptions
+  ): Promise<AIResponse> {
     const startTime = Date.now();
 
     try {
-      // Check cache first
+      // Check cache first (use model.id without key index for cache sharing)
       const cacheKey = this.getCacheKey(model.id, prompt, options);
       const cachedResponse = this.responseCache.get(cacheKey);
       if (cachedResponse && (Date.now() - startTime) < this.CACHE_DURATION) {
         return { ...cachedResponse, latency: Date.now() - startTime };
       }
 
+      const response = await this.callModelWithProvider(
+        { ...model, apiKey },
+        prompt,
+        options
+      );
+      
+      // Cache successful response
+      if (response.success && this.responseCache.size < this.MAX_CACHE_SIZE) {
+        this.responseCache.set(cacheKey, { ...response, latency: Date.now() - startTime });
+      }
+
+      return { ...response, latency: Date.now() - startTime };
+
+    } catch (error) {
+      return {
+        content: '',
+        model: model.name,
+        provider: model.provider,
+        tokens: 0,
+        cost: 0,
+        latency: Date.now() - startTime,
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      };
+    }
+  }
+
+  /**
+   * Try all available keys for a model (used by router)
+   */
+  public async tryAllKeysForModel(
+    model: Model,
+    prompt: string,
+    options: AIOptions = {}
+  ): Promise<AIResponse> {
+    if (!model.apiKeys || model.apiKeys.length <= 1) {
+      return this.callModel(model, prompt, options);
+    }
+
+    // Get key order by health
+    const keyHealth = intelligentKeyManager.getModelKeyHealth(model.id);
+    const sortedKeys = [...keyHealth]
+      .sort((a, b) => {
+        if (a.isHealthy !== b.isHealthy) return a.isHealthy ? -1 : 1;
+        return b.healthScore - a.healthScore;
+      })
+      .map(h => h.keyIndex);
+
+    let lastError: Error | null = null;
+
+    for (const keyIndex of sortedKeys) {
+      const apiKey = model.apiKeys[keyIndex];
+      
+      // Check if key is in cooldown
+      const health = keyHealth.find(h => h.keyIndex === keyIndex);
+      if (health?.cooldownUntil && Date.now() < health.cooldownUntil) {
+        console.log(`⏳ Key ${keyIndex + 1} in cooldown, skipping`);
+        continue;
+      }
+
+      try {
+        console.log(`🔑 Trying key ${keyIndex + 1}/${model.apiKeys.length} for ${model.name}`);
+        
+        const callStartTime = Date.now();
+        const response = await this.callModelWithKey(
+          { ...model, currentKeyIndex: keyIndex },
+          apiKey,
+          prompt,
+          options
+        );
+        const latency = Date.now() - callStartTime;
+
+        if (response.success) {
+          intelligentKeyManager.recordSuccess(model.id, keyIndex, latency);
+          model.currentKeyIndex = keyIndex;
+          console.log(`✅ Success with key ${keyIndex + 1} (latency: ${latency}ms)`);
+          return response;
+        } else {
+          lastError = new Error(response.error || 'Key failed');
+          const errorType = this.classifyQuickError(response.error || '');
+          intelligentKeyManager.recordFailure(model.id, keyIndex, errorType);
+          console.log(`❌ Key ${keyIndex + 1} failed: ${response.error}`);
+        }
+      } catch (error) {
+        const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+        lastError = new Error(errorMsg);
+        const errorType = this.classifyQuickError(errorMsg);
+        intelligentKeyManager.recordFailure(model.id, keyIndex, errorType);
+        console.log(`❌ Key ${keyIndex + 1} error: ${errorMsg}`);
+      }
+    }
+
+    throw lastError || new Error('All keys failed');
+  }
+
       let response: AIResponse;
       let lastError: Error | null = null;
 
-      // Try with current key first
+      // Register keys with intelligent manager if not already
+      if (model.apiKeys && model.apiKeys.length > 1) {
+        intelligentKeyManager.registerModelKeys(model.id, model.apiKeys);
+      }
+
+      // Try with current key first, then rotate through all available keys intelligently
       try {
         response = await this.callModelWithProvider(model, prompt, options);
       } catch (error) {
         lastError = error as Error;
 
-        // If model has multiple keys, try rotating to next key
+        // If model has multiple keys, try rotating with intelligent selection
         if (model.apiKeys && model.apiKeys.length > 1 && model.keyRotationEnabled) {
-          console.warn(`⚠️ Primary key failed for ${model.name}, attempting key rotation...`);
+          console.warn(`⚠️ Primary key failed for ${model.name}, attempting intelligent key rotation...`);
 
-          for (let i = 0; i < model.apiKeys.length; i++) {
-            const nextKeyIndex = (model.currentKeyIndex + i + 1) % model.apiKeys.length;
-            const nextKey = model.apiKeys[nextKeyIndex];
+          // Get the best key order based on health scores
+          const keyHealth = intelligentKeyManager.getModelKeyHealth(model.id);
+          const sortedKeys = [...keyHealth]
+            .sort((a, b) => {
+              // Prioritize healthy keys, avoid recently failed
+              if (a.isHealthy !== b.isHealthy) return a.isHealthy ? -1 : 1;
+              return b.healthScore - a.healthScore;
+            })
+            .map(h => h.keyIndex);
 
+          // Skip current key if it failed
+          const keysToTry = sortedKeys.filter(idx => idx !== model.currentKeyIndex);
+
+          for (const keyIndex of keysToTry) {
             try {
-              const rotatedModel = { ...model, apiKey: nextKey, currentKeyIndex: nextKeyIndex };
+              const nextKey = model.apiKeys![keyIndex];
+              const rotatedModel = { ...model, apiKey: nextKey, currentKeyIndex: keyIndex };
               response = await this.callModelWithProvider(rotatedModel, prompt, options);
 
               // Success! Update the model's current key index
-              model.currentKeyIndex = nextKeyIndex;
-              console.log(`✅ Key rotation successful for ${model.name} (using key ${nextKeyIndex + 1})`);
+              model.currentKeyIndex = keyIndex;
+              intelligentKeyManager.recordSuccess(model.id, keyIndex, Date.now() - startTime);
+              console.log(`✅ Key rotation successful for ${model.name} (key ${keyIndex + 1}/${model.apiKeys.length})`);
               break;
             } catch (rotationError) {
-              console.warn(`❌ Key ${nextKeyIndex + 1} also failed for ${model.name}`);
+              const errorMsg = rotationError instanceof Error ? rotationError.message : 'Unknown error';
+              const errorType = this.classifyQuickError(errorMsg);
+              intelligentKeyManager.recordFailure(model.id, keyIndex, errorType);
+              console.warn(`❌ Key ${keyIndex + 1} also failed for ${model.name}: ${errorMsg}`);
               lastError = rotationError as Error;
             }
           }
@@ -88,6 +242,11 @@ export class UniversalAIClient {
         if (!response) {
           throw lastError || new Error('All API keys failed');
         }
+      }
+
+      // Record success for the key that worked
+      if (response.success) {
+        intelligentKeyManager.recordSuccess(model.id, model.currentKeyIndex, response.latency);
       }
 
       // Cache successful response
@@ -109,6 +268,18 @@ export class UniversalAIClient {
         error: error instanceof Error ? error.message : 'Unknown error'
       };
     }
+  }
+
+  /**
+   * Quick error classification for key manager
+   */
+  private classifyQuickError(error: string): string {
+    const lower = error.toLowerCase();
+    if (lower.includes('rate limit') || lower.includes('429')) return 'rate_limit';
+    if (lower.includes('auth') || lower.includes('401') || lower.includes('invalid key')) return 'auth';
+    if (lower.includes('network') || lower.includes('timeout')) return 'network';
+    if (lower.includes('model') || lower.includes('503') || lower.includes('502')) return 'model_error';
+    return 'unknown';
   }
 
   /**

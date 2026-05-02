@@ -16,6 +16,7 @@ export const ModelSchema = z.object({
   ]),
   modelId: z.string(),
   apiUrl: z.string().optional(),
+  apiKey: z.string().optional(),
   apiKeys: z.array(z.string()).optional(), // Support for multiple API keys per provider
   currentKeyIndex: z.number().default(0), // For key rotation
   keyRotationEnabled: z.boolean().default(false),

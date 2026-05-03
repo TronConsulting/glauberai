@@ -1,5 +1,12 @@
 import { Redis } from '@upstash/redis';
 
+export interface CacheClient {
+  get(key: string): Promise<string | null>;
+  set(key: string, value: any, options?: { ex?: number; px?: number }): Promise<void>;
+  incr(key: string): Promise<number>;
+  expire(key: string, seconds: number): Promise<void>;
+}
+
 let redis: Redis | null = null;
 
 export const getRedis = () => {
@@ -21,7 +28,7 @@ export const getRedis = () => {
 };
 
 // In-memory fallback for development
-class InMemoryCache {
+class InMemoryCache implements CacheClient {
   private cache = new Map<string, { value: any; expiry: number }>();
   private maxSize = 10000; // Configurable limit
 
@@ -68,7 +75,7 @@ class InMemoryCache {
 
 const inMemoryCache = new InMemoryCache();
 
-export const getCacheClient = () => {
-  const redis = getRedis();
-  return redis || inMemoryCache;
+export const getCacheClient = (): CacheClient => {
+  const redisClient = getRedis();
+  return (redisClient || inMemoryCache) as CacheClient;
 };

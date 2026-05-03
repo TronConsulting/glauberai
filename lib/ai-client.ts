@@ -258,6 +258,65 @@ export class UniversalAIClient {
         case 'fireworks':
           response = await this.callFireworks(model, prompt, options);
           break;
+        // Fast LLM inference (OpenAI-compatible)
+        case 'cerebras':
+        case 'sambanova':
+        case 'anyscale':
+        case 'nvidia':
+        case 'qwen':
+        case 'runpod':
+        case 'meta':
+        case 'openrouter':
+        case 'ollama':
+          response = await this.callOpenAICompat(model, prompt, options);
+          break;
+        // Image generation providers
+        case 'stability':
+        case 'midjourney':
+        case 'blackforest':
+        case 'ideogram':
+        case 'leonardo':
+        case 'recraft':
+        case 'replicate':
+          response = await this.callImageGenStub(model);
+          break;
+        // Video generation providers
+        case 'runway':
+        case 'pika':
+        case 'luma':
+        case 'kling':
+        case 'synthesia':
+        case 'heygen':
+          response = await this.callVideoGenStub(model);
+          break;
+        // Audio TTS providers
+        case 'elevenlabs':
+        case 'playht':
+        case 'murf':
+        case 'resemble':
+        case 'speechify':
+          response = await this.callTTSStub(model);
+          break;
+        // Audio STT providers
+        case 'assemblyai':
+        case 'deepgram':
+          response = await this.callSTTStub(model);
+          break;
+        // Music generation providers
+        case 'suno':
+        case 'udio':
+        case 'riffusion':
+          response = await this.callMusicGenStub(model);
+          break;
+        // Enterprise LLM
+        case 'ai21':
+          response = await this.callAI21Stub(model);
+          break;
+        // Embeddings providers
+        case 'voyage':
+        case 'jina':
+          response = await this.callEmbeddingStub(model);
+          break;
         default:
           throw new Error(`Provider ${model.provider} not implemented`);
       }
@@ -885,6 +944,174 @@ export class UniversalAIClient {
         error: error instanceof Error ? error.message : 'Unknown error'
       };
     }
+  }
+  /**
+   * Generic OpenAI-compatible handler for Cerebras, Sambanova, Anyscale, etc.
+   */
+  private async callOpenAICompat(model: Model, prompt: string, options: AIOptions): Promise<AIResponse> {
+    const apiUrl = model.apiUrl || `https://api.${model.provider}.com/v1/chat/completions`;
+
+    // Special handling for Ollama (local server)
+    if (model.provider === 'ollama') {
+      return this.callOllama(model, prompt, options);
+    }
+
+    const response = await fetch(apiUrl, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${model.apiKey}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        model: model.modelId,
+        messages: [{ role: 'user', content: prompt }],
+        max_tokens: options.maxTokens || model.maxTokens,
+        temperature: options.temperature || 0.7
+      })
+    });
+
+    if (!response.ok) {
+      const error = await response.text();
+      throw new Error(`${model.provider} API error: ${response.status} - ${error}`);
+    }
+
+    const data = await response.json();
+    const content = data.choices[0]?.message?.content || '';
+
+    return {
+      content,
+      model: model.name,
+      provider: model.provider,
+      tokens: data.usage?.total_tokens || this.estimateTokens(prompt + content),
+      cost: 0,
+      latency: 0,
+      success: true,
+      metadata: { usage: data.usage }
+    };
+  }
+
+  /**
+   * Ollama local server handler
+   */
+  private async callOllama(model: Model, prompt: string, _options: AIOptions): Promise<AIResponse> {
+    const apiUrl = model.apiUrl || 'http://localhost:11434/api/generate';
+    const response = await fetch(apiUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: model.modelId === 'ollama-auto' ? 'llama3.2' : model.modelId,
+        prompt,
+        stream: false
+      })
+    });
+
+    if (!response.ok) {
+      throw new Error(`Ollama error: ${response.status}. Is Ollama running? Visit http://localhost:11434`);
+    }
+
+    const data = await response.json();
+    return {
+      content: data.response || '',
+      model: model.name,
+      provider: model.provider,
+      tokens: this.estimateTokens(prompt + (data.response || '')),
+      cost: 0,
+      latency: 0,
+      success: true
+    };
+  }
+
+  // ── Stub handlers (Coming soon) ──
+
+  private async callImageGenStub(model: Model): Promise<AIResponse> {
+    return {
+      content: '',
+      model: model.name,
+      provider: model.provider,
+      tokens: 0,
+      cost: 0,
+      latency: 0,
+      success: false,
+      error: `${model.provider} image generation integration coming soon. Track progress at github.com/GlauberAI.`
+    };
+  }
+
+  private async callVideoGenStub(model: Model): Promise<AIResponse> {
+    return {
+      content: '',
+      model: model.name,
+      provider: model.provider,
+      tokens: 0,
+      cost: 0,
+      latency: 0,
+      success: false,
+      error: `${model.provider} video generation integration coming soon. Track progress at github.com/GlauberAI.`
+    };
+  }
+
+  private async callTTSStub(model: Model): Promise<AIResponse> {
+    return {
+      content: '',
+      model: model.name,
+      provider: model.provider,
+      tokens: 0,
+      cost: 0,
+      latency: 0,
+      success: false,
+      error: `${model.provider} TTS integration coming soon. Track progress at github.com/GlauberAI.`
+    };
+  }
+
+  private async callSTTStub(model: Model): Promise<AIResponse> {
+    return {
+      content: '',
+      model: model.name,
+      provider: model.provider,
+      tokens: 0,
+      cost: 0,
+      latency: 0,
+      success: false,
+      error: `${model.provider} speech-to-text integration coming soon. Track progress at github.com/GlauberAI.`
+    };
+  }
+
+  private async callMusicGenStub(model: Model): Promise<AIResponse> {
+    return {
+      content: '',
+      model: model.name,
+      provider: model.provider,
+      tokens: 0,
+      cost: 0,
+      latency: 0,
+      success: false,
+      error: `${model.provider} music generation integration coming soon. Track progress at github.com/GlauberAI.`
+    };
+  }
+
+  private async callAI21Stub(model: Model): Promise<AIResponse> {
+    return {
+      content: '',
+      model: model.name,
+      provider: model.provider,
+      tokens: 0,
+      cost: 0,
+      latency: 0,
+      success: false,
+      error: `AI21 integration coming soon. Track progress at github.com/GlauberAI.`
+    };
+  }
+
+  private async callEmbeddingStub(model: Model): Promise<AIResponse> {
+    return {
+      content: '',
+      model: model.name,
+      provider: model.provider,
+      tokens: 0,
+      cost: 0,
+      latency: 0,
+      success: false,
+      error: `${model.provider} embeddings integration coming soon. Track progress at github.com/GlauberAI.`
+    };
   }
 }
 

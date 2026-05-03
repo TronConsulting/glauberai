@@ -37,10 +37,10 @@ function scanProviders(): ProviderReport[] {
     }
 
     const validKeys = keys.filter(
-      k => !k.includes('your_') && !k.includes('_here') && k.length > 10
+      k => !k.includes('your_') && !k.includes('_here') && !k.includes('Must Need') && !k.includes('Need Payment') && k.length > 10
     );
     const invalidKeys = keys.filter(
-      k => k.includes('your_') || k.includes('_here') || k.length <= 10
+      k => k.includes('your_') || k.includes('_here') || k.includes('Must Need') || k.includes('Need Payment') || k.length <= 10
     );
 
     let reason: string | undefined;

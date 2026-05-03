@@ -1,4 +1,5 @@
 import { Model, ALL_MODELS, API_KEY_MAPPINGS, ModelProvider, ModelCategory } from './models';
+import { intelligentKeyManager } from './intelligent-key-manager';
 
 interface ModelValidation {
   isValid: boolean;
@@ -63,7 +64,7 @@ export class ModelManager {
 
       // Check for single key first (backward compatibility)
       const singleKey = process.env[envVar];
-      if (singleKey && singleKey.length > 0 && !singleKey.includes('your_') && !singleKey.includes('_here')) {
+      if (singleKey && singleKey.length > 0 && !singleKey.includes('your_') && !singleKey.includes('_here') && !singleKey.includes('Must Need') && !singleKey.includes('Need Payment')) {
         apiKeys.push(singleKey);
       }
 
@@ -101,31 +102,36 @@ export class ModelManager {
       const validation = this.validateModel(model);
 
       if (validation.isValid) {
-        // Get all available API keys for this provider
-        const apiKeys = this.getApiKeysForProvider(model.provider);
+         // Get all available API keys for this provider
+         const apiKeys = this.getApiKeysForProvider(model.provider);
 
-        if (apiKeys.length > 0) {
-          // Create multiple instances for providers with multiple keys
-          apiKeys.forEach((apiKey, index) => {
-            const modelId = apiKeys.length > 1 ? `${model.id}-key${index + 1}` : model.id;
-            const modelName = apiKeys.length > 1 ? `${model.name} (Key ${index + 1})` : model.name;
+         if (apiKeys.length > 0) {
+           // Create multiple instances for providers with multiple keys
+           apiKeys.forEach((apiKey, index) => {
+             const modelId = apiKeys.length > 1 ? `${model.id}-key${index + 1}` : model.id;
+             const modelName = apiKeys.length > 1 ? `${model.name} (Key ${index + 1})` : model.name;
 
-            const modelWithKey = {
-              ...model,
-              id: modelId,
-              name: modelName,
-              apiKey,
-              apiKeys: apiKeys.length > 1 ? apiKeys : undefined,
-              currentKeyIndex: index,
-              keyRotationEnabled: apiKeys.length > 1
-            };
+             const modelWithKey = {
+               ...model,
+               id: modelId,
+               name: modelName,
+               apiKey,
+               apiKeys: apiKeys.length > 1 ? apiKeys : undefined,
+               currentKeyIndex: index,
+               keyRotationEnabled: apiKeys.length > 1
+             };
 
-            this.availableModels.push(modelWithKey);
-            this.modelCache.set(modelId, modelWithKey);
+             this.availableModels.push(modelWithKey);
+             this.modelCache.set(modelId, modelWithKey);
 
-            console.log(`📦 Cached model: ${modelName} (${model.provider})`);
-          });
-        } else if (model.costPer1kTokens === 0) {
+             console.log(`📦 Cached model: ${modelName} (${model.provider})`);
+           });
+
+           // Register keys with intelligent key manager
+           if (apiKeys.length > 1) {
+             intelligentKeyManager.registerModelKeys(model.id, apiKeys);
+           }
+         } else if (model.costPer1kTokens === 0) {
           // Free models don't need API keys
           this.availableModels.push(model);
           this.modelCache.set(model.id, model);
@@ -149,7 +155,7 @@ export class ModelManager {
 
     // Check for single key first (backward compatibility)
     const singleKey = process.env[envVar];
-    if (singleKey && singleKey.length > 0 && !singleKey.includes('your_') && !singleKey.includes('_here')) {
+    if (singleKey && singleKey.length > 0 && !singleKey.includes('your_') && !singleKey.includes('_here') && !singleKey.includes('Must Need') && !singleKey.includes('Need Payment')) {
       apiKeys.push(singleKey);
     }
 
@@ -157,7 +163,7 @@ export class ModelManager {
     let keyIndex = 1;
     while (true) {
       const numberedKey = process.env[`${envVar}_${keyIndex}`];
-      if (!numberedKey || numberedKey.length === 0 || numberedKey.includes('your_') || numberedKey.includes('_here')) {
+      if (!numberedKey || numberedKey.length === 0 || numberedKey.includes('your_') || numberedKey.includes('_here') || numberedKey.includes('Must Need') || numberedKey.includes('Need Payment')) {
         break;
       }
       apiKeys.push(numberedKey);

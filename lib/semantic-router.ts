@@ -5,6 +5,7 @@
 
 import { Model, ModelCategory } from './models';
 import { prisma } from './prisma';
+import { embeddingGenerator } from './generators/embedding-generator';
 
 export interface EmbeddingVector {
   modelId: string;
@@ -60,8 +61,8 @@ export class SemanticRouter {
   }
 
   /**
-   * Generate semantic embedding for a query using lightweight tokenization
-   * In production, replace with actual embedding model (Cohere, OpenAI, etc.)
+   * Generate semantic embedding for a query using actual embedding models
+   * Falls back to lightweight tokenization if embedding service unavailable
    */
   public async generateQueryEmbedding(query: string): Promise<number[]> {
     const cacheKey = query.toLowerCase().trim();
@@ -70,18 +71,32 @@ export class SemanticRouter {
       return this.embeddingCache.get(cacheKey)!;
     }
 
-    // Simple embedding strategy: token frequency + semantic features
-    const embedding = this.createSimpleEmbedding(query);
-    this.embeddingCache.set(cacheKey, embedding);
+    try {
+      // Try to generate real embedding using OpenAI or other embedding service
+      const embeddingResult = await embeddingGenerator.generate({
+        texts: query,
+        model: 'text-embedding-3-small'
+      });
 
-    // Cache with TTL (5 minutes)
-    setTimeout(() => this.embeddingCache.delete(cacheKey), 5 * 60 * 1000);
+      if (embeddingResult.success && embeddingResult.embeddings.length > 0) {
+        const embedding = embeddingResult.embeddings[0];
+        this.embeddingCache.set(cacheKey, embedding);
 
-    return embedding;
+        // Cache with TTL (5 minutes)
+        setTimeout(() => this.embeddingCache.delete(cacheKey), 5 * 60 * 1000);
+
+        return embedding;
+      }
+    } catch (error) {
+      console.warn('Failed to generate real embedding, falling back to simple embedding:', error);
+    }
+
+    // Fallback to simple embedding strategy
+    return this.createSimpleEmbedding(query);
   }
 
   /**
-   * Create lightweight embedding without external API calls
+   * Create lightweight embedding without external API calls (fallback)
    */
   private createSimpleEmbedding(query: string): number[] {
     const queryLower = query.toLowerCase();
@@ -156,7 +171,7 @@ export class SemanticRouter {
   }
 
   /**
-   * Get user preferences for model selection
+   * Get user preferences for model selection from database
    */
   public async getUserPreferences(
     userId: string,
@@ -164,15 +179,29 @@ export class SemanticRouter {
     limit: number = 3
   ): Promise<UserPreference[]> {
     try {
-      // In production, this would query from database
-      // For now, return mock preferences weighted by success rate
-      const preferences: UserPreference[] = [];
-      
-      // Calculate preference score based on success metrics
-      // preference_score = (success_count / (success_count + failure_count)) * 100
-      // adjusted for latency (lower is better)
-      
-      return preferences;
+      // Query user preferences from database
+      const preferences = await prisma.userModelPreference.findMany({
+        where: {
+          userId,
+          queryType: queryCategory,
+        },
+        orderBy: {
+          preferenceScore: 'desc',
+        },
+        take: limit,
+      });
+
+      return preferences.map(pref => ({
+        userId: pref.userId,
+        modelId: pref.modelId,
+        queryType: pref.queryType as ModelCategory,
+        successCount: pref.successCount,
+        failureCount: pref.failureCount,
+        avgResponseTime: pref.avgResponseTime,
+        avgCost: pref.avgCost,
+        lastUsed: pref.lastUsedAt || new Date(),
+        preference_score: pref.preferenceScore * 100, // Convert 0-1 to 0-100
+      }));
     } catch (error) {
       console.error('Error fetching user preferences:', error);
       return [];
@@ -191,14 +220,70 @@ export class SemanticRouter {
     cost: number
   ): Promise<void> {
     try {
-      // Track user preferences in database for future routing
-      // This builds a personalized model ranking over time
-      
-      // Increment success/failure counters
-      // Update average response time
-      // Update average cost
-      // Calculate preference score
-      
+      // Upsert user preference in database
+      const existingPreference = await prisma.userModelPreference.findUnique({
+        where: {
+          userId_modelId_queryType: {
+            userId,
+            modelId,
+            queryType,
+          }
+        }
+      });
+
+      if (existingPreference) {
+        // Update existing preference
+        const newSuccessCount = existingPreference.successCount + (success ? 1 : 0);
+        const newFailureCount = existingPreference.failureCount + (success ? 0 : 1);
+        const totalAttempts = newSuccessCount + newFailureCount;
+        
+        // Calculate new preference score (success rate)
+        const preferenceScore = totalAttempts > 0 ? newSuccessCount / totalAttempts : 0.5;
+        
+        // Update average response time and cost
+        const newAvgResponseTime = ((existingPreference.avgResponseTime * existingPreference.totalAttempts) + responseTime) / (existingPreference.totalAttempts + 1);
+        const newAvgCost = ((existingPreference.avgCost * existingPreference.totalAttempts) + cost) / (existingPreference.totalAttempts + 1);
+
+        await prisma.userModelPreference.update({
+          where: {
+            userId_modelId_queryType: {
+              userId,
+              modelId,
+              queryType,
+            }
+          },
+          data: {
+            successCount: newSuccessCount,
+            failureCount: newFailureCount,
+            totalAttempts,
+            avgResponseTime: Math.round(newAvgResponseTime),
+            avgCost: newAvgCost,
+            totalCost: existingPreference.totalCost + cost,
+            lastUsedAt: new Date(),
+            preferenceScore,
+            confidenceLevel: Math.min(1.0, totalAttempts / 10), // Increase confidence with more usage
+          }
+        });
+      } else {
+        // Create new preference record
+        await prisma.userModelPreference.create({
+          data: {
+            userId,
+            modelId,
+            queryType,
+            successCount: success ? 1 : 0,
+            failureCount: success ? 0 : 1,
+            totalAttempts: 1,
+            avgResponseTime: Math.round(responseTime),
+            avgCost: cost,
+            totalCost: cost,
+            lastUsedAt: new Date(),
+            preferenceScore: success ? 1.0 : 0.0,
+            confidenceLevel: 0.1, // Low confidence for new preference
+          }
+        });
+      }
+
       console.log(`✅ Recorded usage: User ${userId} used ${modelId} for ${queryType} (success: ${success}, time: ${responseTime}ms)`);
     } catch (error) {
       console.error('Error recording model usage:', error);

@@ -314,7 +314,7 @@ model UserModelPreference {
   lastUsedAt        DateTime?
   preferenceScore   Float    @default(0.5) // 0-1, based on success rate
   confidenceLevel   Float    @default(0) // how confident we are in this preference
-  embedding         Float[]? // semantic embedding for this user+model combo
+  embedding         Float[]  @default([]) // semantic embedding for this user+model combo
   metadata          Json?
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt

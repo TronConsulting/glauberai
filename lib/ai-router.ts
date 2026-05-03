@@ -13,6 +13,7 @@ import {
   dynamicModelRegistry,
   DynamicModel
 } from './dynamic-model-registry';
+import { intelligentKeyManager } from './intelligent-key-manager';
 
 export interface QueryAnalysis {
    primaryType: ModelCategory;
@@ -138,6 +139,9 @@ export class IntelligentAIRouter {
       .filter(([, patterns]) => patterns.some(pattern => pattern.test(queryLower)))
       .map(([tag]) => tag);
 
+    const urgentWords = ['urgent', 'quick', 'fast', 'asap', 'immediately', 'now', 'as soon as possible'];
+    const urgency = urgentWords.some(uw => queryLower.includes(uw)) ? 'high' : 'low';
+
     const requiresCode = intentTags.includes('code');
     const requiresVision = intentTags.includes('vision') || intentTags.includes('multimodal');
     const requiresReasoning = intentTags.includes('reasoning') || intentTags.includes('math') || intentTags.includes('planning') || intentTags.includes('research') || intentTags.includes('analyze');
@@ -196,10 +200,6 @@ export class IntelligentAIRouter {
     } else if (query.length > 120 || words.length > 25) {
       complexity = 'medium';
     }
-
-    const urgentWords = ['urgent', 'quick', 'fast', 'asap', 'immediately', 'now', 'as soon as possible'];
-    const urgency = urgentWords.some(uw => queryLower.includes(uw)) ? 'high' : 'low';
-
     return {
       primaryType,
       secondaryTypes,
@@ -308,6 +308,7 @@ export class IntelligentAIRouter {
     let routingTime = 0;
     let fallbacksUsed = 0;
     const attemptedModels: string[] = [];
+    const modelErrors: Array<{ model: string; error: string; errorType: string }> = [];
 
     try {
       // Use enhanced intelligent routing
@@ -318,28 +319,29 @@ export class IntelligentAIRouter {
       });
       routingTime = Date.now() - routingStartTime;
 
-      // Try primary model and fallbacks
+      // Try primary model and all its keys, then fallbacks
       const modelsToTry: DynamicModel[] = [routing.selectedModel, ...routing.fallbackChain];
 
       for (const model of modelsToTry) {
+        // Skip if all keys for this model are unhealthy
+        if (intelligentKeyManager.shouldSkipModel(model.id)) {
+          console.log(`⚠️ Skipping ${model.name} - all API keys unhealthy`);
+          attemptedModels.push(`${model.name} (unhealthy)`);
+          fallbacksUsed++;
+          continue;
+        }
+
         try {
           attemptedModels.push(model.name);
-
-          console.log(`🤖 Trying ${model.name} (${model.provider}) - Confidence: ${(routing.confidence * 100).toFixed(1)}%`);
+          console.log(`🤖 Trying ${model.name} (confidence: ${(routing.confidence * 100).toFixed(1)}%)`);
 
           const callStartTime = Date.now();
-          const response = await aiClient.callModel(model as Model, query, options);
+          // This tries all keys for the model intelligently
+          const response = await aiClient.tryAllKeysForModel(model as Model, query, options);
           const callLatency = Date.now() - callStartTime;
 
           if (response.success) {
-            // Record successful performance
-            intelligentModelRouter.recordModelResult(
-              model.id,
-              true,
-              callLatency,
-              response.cost
-            );
-
+            intelligentModelRouter.recordModelResult(model.id, true, callLatency, response.cost);
             const totalTime = Date.now() - startTime;
 
             return {
@@ -347,42 +349,34 @@ export class IntelligentAIRouter {
               routing,
               attemptedModels,
               finalModel: model.name,
-              performance: {
-                routingTime,
-                totalTime,
-                fallbacksUsed
-              }
+              performance: { routingTime, totalTime, fallbacksUsed }
             };
           } else {
-            // Record failed performance
-            intelligentModelRouter.recordModelResult(
-              model.id,
-              false,
-              callLatency,
-              0
-            );
-
-            console.log(`❌ ${model.name} failed: ${response.error}`);
+            // Should not reach here if tryAllKeysForModel throws on failure
+            const errorMsg = response.error || 'All keys failed silently';
+            const errorType = this.classifyError(errorMsg);
+            modelErrors.push({ model: model.name, error: errorMsg, errorType });
+            intelligentModelRouter.recordModelResult(model.id, false, callLatency, 0);
             fallbacksUsed++;
           }
-
         } catch (error) {
-          intelligentModelRouter.recordModelResult(
-            model.id,
-            false,
-            Date.now() - startTime,
-            0
-          );
-
-          console.log(`❌ ${model.name} error: ${error instanceof Error ? error.message : 'Unknown'}`);
+          const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+          const errorType = this.classifyError(errorMsg);
+          
+          console.log(`❌ ${model.name} failed (${errorType}): ${errorMsg}`);
+          modelErrors.push({ model: model.name, error: errorMsg, errorType });
+          
+          intelligentModelRouter.recordModelResult(model.id, false, Date.now() - startTime, 0);
           fallbacksUsed++;
         }
       }
 
-      // If all models failed, return error with performance data
+      // All models exhausted
       const totalTime = Date.now() - startTime;
+      const errorSummary = this.generateErrorSummary(modelErrors, attemptedModels);
+
       return {
-        content: `I apologize, but I'm currently experiencing technical difficulties. All available models (${attemptedModels.join(', ')}) are temporarily unavailable. Please try again in a few moments.`,
+        content: errorSummary.message,
         model: routing.selectedModel.name,
         provider: routing.selectedModel.provider,
         tokens: 50,
@@ -393,20 +387,17 @@ export class IntelligentAIRouter {
         routing,
         attemptedModels,
         finalModel: 'none',
-        performance: {
-          routingTime,
-          totalTime,
-          fallbacksUsed
+        performance: { routingTime, totalTime, fallbacksUsed },
+        metadata: {
+          modelErrors,
+          errorType: 'MODEL_UNAVAILABLE'
         }
       };
 
     } catch (error) {
       const totalTime = Date.now() - startTime;
-
-      // Fallback to legacy routing if enhanced routing fails
       console.warn('Enhanced routing failed, falling back to basic routing:', error);
 
-      // Create a basic routing decision for fallback
       const fallbackModels = dynamicModelRegistry.getModelsWithPerformance()
         .filter(m => m.enabled)
         .slice(0, 3);
@@ -437,7 +428,6 @@ export class IntelligentAIRouter {
         };
       }
 
-      // Try the first available model
       const fallbackModel = fallbackModels[0];
       try {
         const response = await aiClient.callModel(fallbackModel as Model, query, options);
@@ -486,6 +476,136 @@ export class IntelligentAIRouter {
   }
 
   /**
+   * Generate user-friendly error summary with actionable suggestions
+   */
+  private generateErrorSummary(
+    modelErrors: Array<{ model: string; error: string; errorType: string }>,
+    attemptedModels: string[]
+  ): { message: string; suggestions: string[] } {
+    const errorCounts = modelErrors.reduce((acc, { errorType }) => {
+      acc[errorType] = (acc[errorType] || 0) + 1;
+      return acc;
+    }, {} as Record<string, number>);
+
+    const hasRateLimit = errorCounts['rate_limit'] > 0;
+    const hasAuthErrors = errorCounts['auth'] > 0;
+    const hasNetworkErrors = errorCounts['network'] > 0;
+    const hasModelErrors = errorCounts['model_error'] > 0;
+
+    let message = 'I apologize, but I encountered issues while processing your request.\n\n';
+    
+    const suggestions: string[] = [];
+
+    if (hasRateLimit) {
+      message += '⚠️ **Rate limits exceeded** on one or more AI services.\n\n';
+      suggestions.push('Wait a few moments before trying again');
+      suggestions.push('Consider upgrading your plan for higher rate limits');
+    }
+
+    if (hasAuthErrors) {
+      message += '🔐 **Authentication errors** detected.\n\n';
+      suggestions.push('Check that API keys are properly configured');
+      suggestions.push('Verify API keys are valid and have not expired');
+    }
+
+    if (hasNetworkErrors) {
+      message += '🌐 **Network connectivity issues** encountered.\n\n';
+      suggestions.push('Check your internet connection');
+      suggestions.push('Verify firewall/proxy settings');
+    }
+
+    if (hasModelErrors) {
+      message += '⚠️ **Model availability issues** detected.\n\n';
+      suggestions.push('Some AI services may be temporarily unavailable');
+      suggestions.push('Try a different model or category');
+    }
+
+    if (modelErrors.length > 0) {
+      message += `**Models attempted:** ${attemptedModels.join(' → ')}\n\n`;
+      
+      const uniqueErrors = [...new Set(modelErrors.map(e => e.error))].slice(0, 3);
+      message += `**Errors encountered:**\n${uniqueErrors.map(e => `• ${e}`).join('\n')}\n\n`;
+    }
+
+    message += '**Suggestions:**\n';
+    suggestions.forEach(s => message += `• ${s}\n`);
+
+    if (suggestions.length === 0) {
+      message += '• Please try again in a few moments\n';
+      message += '• Try a simpler or shorter query\n';
+      message += '• Contact support if the problem persists\n';
+    }
+
+    message += '\nIf the issue persists, please try again later or select a different AI model.';
+
+    return { message, suggestions };
+  }
+
+  /**
+   * Classify error type based on error message
+   */
+  private classifyError(error: string): 'rate_limit' | 'auth' | 'network' | 'model_error' | 'unknown' {
+    const errorLower = error.toLowerCase();
+
+    if (
+      errorLower.includes('rate limit') ||
+      errorLower.includes('too many requests') ||
+      errorLower.includes('429') ||
+      errorLower.includes('quota exceeded') ||
+      errorLower.includes('exceeded rate') ||
+      errorLower.includes('rate_limit') ||
+      errorLower.includes('requests per minute') ||
+      errorLower.includes('tpm limit') ||
+      errorLower.includes('rpm limit')
+    ) {
+      return 'rate_limit';
+    }
+
+    if (
+      errorLower.includes('unauthorized') ||
+      errorLower.includes('invalid api key') ||
+      errorLower.includes('authentication') ||
+      errorLower.includes('auth') ||
+      errorLower.includes('401') ||
+      errorLower.includes('403') ||
+      errorLower.includes('forbidden') ||
+      errorLower.includes('invalid key') ||
+      errorLower.includes('api key not valid')
+    ) {
+      return 'auth';
+    }
+
+    if (
+      errorLower.includes('network') ||
+      errorLower.includes('eof') ||
+      errorLower.includes('timeout') ||
+      errorLower.includes('connect') ||
+      errorLower.includes('fetch') ||
+      errorLower.includes('econnreset') ||
+      errorLower.includes('enotfound') ||
+      errorLower.includes('erefus') ||
+      errorLower.includes('etimedout')
+    ) {
+      return 'network';
+    }
+
+    if (
+      errorLower.includes('model') ||
+      errorLower.includes('not found') ||
+      errorLower.includes('capacity') ||
+      errorLower.includes('overloaded') ||
+      errorLower.includes('unavailable') ||
+      errorLower.includes('503') ||
+      errorLower.includes('502') ||
+      errorLower.includes('500')
+    ) {
+      return 'model_error';
+    }
+
+    return 'unknown';
+  }
+
+  /**
    * Select the best model for the analysis
    */
   private selectBestModel(
@@ -493,16 +613,15 @@ export class IntelligentAIRouter {
     constraints: { maxCost?: number; preferFree?: boolean; requiresSpeed?: boolean },
     availableModels?: Model[]
   ): Model | null {
-    const preferences = {
-      maxCost: constraints.maxCost,
-      preferFree: constraints.preferFree,
-      requiresVision: analysis.requiresVision,
-      requiresCode: analysis.requiresCode,
-      requiresReasoning: analysis.requiresReasoning,
-      requiresCreative: analysis.requiresCreative,
-      requiresSpeed: constraints.requiresSpeed || analysis.requiresFast
-      requiresSpeed: constraints.requiresSpeed || analysis.urgency === 'high'
-    };
+     const preferences = {
+       maxCost: constraints.maxCost,
+       preferFree: constraints.preferFree,
+       requiresVision: analysis.requiresVision,
+       requiresCode: analysis.requiresCode,
+       requiresReasoning: analysis.requiresReasoning,
+       requiresCreative: analysis.requiresCreative,
+       requiresSpeed: constraints.requiresSpeed || analysis.requiresFast || analysis.urgency === 'high'
+     };
 
     const modelsToSearch = availableModels || modelManager.getAllModels();
 

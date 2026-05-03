@@ -23,7 +23,7 @@ export interface AIResponse {
 
 export class UniversalAIClient {
   private static instance: UniversalAIClient;
-  private responseCache = new Map<string, AIResponse>();
+  private responseCache = new Map<string, { response: AIResponse; timestamp: number }>();
   private readonly CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
   private readonly MAX_CACHE_SIZE = 100;
 
@@ -47,7 +47,8 @@ export class UniversalAIClient {
     // For models with multiple keys, let the router handle key selection at a higher level
     // For single-key models, use direct call
     if (!model.apiKeys || model.apiKeys.length <= 1) {
-      return this.callModelWithKey(model, model.apiKey, prompt, options);
+      const apiKey = model.apiKey ?? '';
+      return this.callModelWithKey(model, apiKey, prompt, options);
     }
 
     // For multi-key models, get best key and try it
@@ -89,7 +90,7 @@ export class UniversalAIClient {
       const cacheKey = this.getCacheKey(model.id, prompt, options);
       const cachedResponse = this.responseCache.get(cacheKey);
       if (cachedResponse && (Date.now() - startTime) < this.CACHE_DURATION) {
-        return { ...cachedResponse, latency: Date.now() - startTime };
+        return { ...cachedResponse.response, latency: Date.now() - startTime };
       }
 
       const response = await this.callModelWithProvider(
@@ -100,7 +101,7 @@ export class UniversalAIClient {
       
       // Cache successful response
       if (response.success && this.responseCache.size < this.MAX_CACHE_SIZE) {
-        this.responseCache.set(cacheKey, { ...response, latency: Date.now() - startTime });
+        this.responseCache.set(cacheKey, { response: { ...response, latency: Date.now() - startTime }, timestamp: Date.now() });
       }
 
       return { ...response, latency: Date.now() - startTime };
@@ -904,7 +905,7 @@ export class UniversalAIClient {
       }
     }
 
-    this.responseCache.set(key, response);
+    this.responseCache.set(key, { response, timestamp: Date.now() });
   }
 
   /**

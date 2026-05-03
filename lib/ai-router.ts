@@ -16,10 +16,13 @@ import {
 import { intelligentKeyManager } from './intelligent-key-manager';
 
 export interface QueryAnalysis {
+   type: ModelCategory;
    primaryType: ModelCategory;
    secondaryTypes: ModelCategory[];
    complexity: 'simple' | 'medium' | 'complex';
    keywords: string[];
+   intentTags: string[];
+   subtasks: string[];
    requiresCode: boolean;
    requiresVision: boolean;
    isQuestion: boolean;
@@ -201,6 +204,7 @@ export class IntelligentAIRouter {
       complexity = 'medium';
     }
     return {
+      type: primaryType,
       primaryType,
       secondaryTypes,
       complexity,

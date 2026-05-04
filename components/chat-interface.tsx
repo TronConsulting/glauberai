@@ -1,11 +1,10 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { Card } from '@/components/ui/card';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { Send, Loader2, User, Bot, AlertCircle } from 'lucide-react';
+import { Send, Loader2, User, Bot, PenLine } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import ReactMarkdown from 'react-markdown';
@@ -34,7 +33,18 @@ export function ChatInterface({
   onMessageSent
 }: ChatInterfaceProps) {
   const [messages, setMessages] = useState<Message[]>(initialMessages);
-  const [input, setInput] = useState('');
+  const [messagesLoaded, setMessagesLoaded] = useState(false);
+  const [loadingMessages, setLoadingMessages] = useState(false);
+  // Restore draft from localStorage
+  const draftKey = `chat-draft-${conversationId}`;
+  const [input, setInput] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem(draftKey) || '';
+    }
+    return '';
+  });
+  const [isTyping, setIsTyping] = useState(false);
+  const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [isStreaming, setIsStreaming] = useState(false);
   const [streamingMessage, setStreamingMessage] = useState('');
   const [currentModel, setCurrentModel] = useState<string>('');
@@ -49,6 +59,63 @@ export function ChatInterface({
     scrollToBottom();
   }, [messages, streamingMessage]);
 
+  // Load messages from the server whenever the conversation changes
+  const loadMessages = useCallback(async () => {
+    if (!conversationId) return;
+    setLoadingMessages(true);
+    try {
+      const res = await fetch(`/api/conversations/${conversationId}`);
+      if (!res.ok) throw new Error('Failed to load messages');
+      const data = await res.json();
+      const serverMessages: Message[] = (data.conversation?.messages || []).map((m: any) => ({
+        id: m.id,
+        role: m.role as 'user' | 'assistant',
+        content: m.content,
+        model: m.model,
+        tokens: m.tokens,
+        cost: m.cost,
+        createdAt: new Date(m.createdAt),
+      }));
+      setMessages(serverMessages);
+    } catch (err) {
+      console.error('Error loading messages:', err);
+      // Fall back to whatever was passed in
+      setMessages(initialMessages);
+    } finally {
+      setLoadingMessages(false);
+      setMessagesLoaded(true);
+    }
+  }, [conversationId]);
+
+  useEffect(() => {
+    // Immediately wipe previous chat so it never bleeds into this one
+    setMessages([]);
+    setStreamingMessage('');
+    setMessagesLoaded(false);
+    loadMessages();
+    // Restore draft for this conversation
+    if (typeof window !== 'undefined') {
+      setInput(localStorage.getItem(draftKey) || '');
+    }
+  }, [conversationId, loadMessages]);
+
+  // Persist draft to localStorage on every input change
+  const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const value = e.target.value;
+    setInput(value);
+    if (typeof window !== 'undefined') {
+      if (value) {
+        localStorage.setItem(draftKey, value);
+      } else {
+        localStorage.removeItem(draftKey);
+      }
+    }
+    // Show typing indicator
+    setIsTyping(true);
+    if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+    typingTimeoutRef.current = setTimeout(() => setIsTyping(false), 1500);
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -56,6 +123,10 @@ export function ChatInterface({
 
     const userMessage = input.trim();
     setInput('');
+    // Clear draft from localStorage
+    if (typeof window !== 'undefined') localStorage.removeItem(draftKey);
+    setIsTyping(false);
+    if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
     setIsStreaming(true);
     setStreamingMessage('');
     setCurrentModel('');
@@ -172,9 +243,23 @@ export function ChatInterface({
 
   return (
     <div className="flex flex-col h-full">
+      {/* Typing indicator banner */}
+      {isTyping && !isStreaming && (
+        <div className="flex items-center gap-2 px-4 py-1.5 text-xs text-muted-foreground border-b bg-muted/30 animate-pulse">
+          <PenLine className="w-3 h-3" />
+          <span>You are typing…</span>
+        </div>
+      )}
       {/* Messages Area */}
       <div className="flex-1 overflow-y-auto px-4 py-6 space-y-6">
-        {messages.length === 0 && !streamingMessage && (
+        {loadingMessages && (
+          <div className="flex flex-col items-center justify-center h-full text-center space-y-4">
+            <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
+            <p className="text-sm text-muted-foreground">Loading messages…</p>
+          </div>
+        )}
+
+        {!loadingMessages && messages.length === 0 && !streamingMessage && (
           <div className="flex flex-col items-center justify-center h-full text-center space-y-4">
             <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center">
               <Bot className="w-8 h-8 text-primary" />
@@ -315,7 +400,7 @@ export function ChatInterface({
           <Textarea
             ref={textareaRef}
             value={input}
-            onChange={(e) => setInput(e.target.value)}
+            onChange={handleInputChange}
             onKeyDown={handleKeyDown}
             placeholder="Type your message... (Shift+Enter for new line)"
             disabled={isStreaming}

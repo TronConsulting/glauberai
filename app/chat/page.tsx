@@ -46,26 +46,38 @@ export default function ChatPage() {
   } | null>(null);
 
   useEffect(() => {
-    loadConversations();
+    loadConversations(true);
     loadUsage();
   }, []);
 
-  const loadConversations = async () => {
+  const loadConversations = async (isInitialLoad = false) => {
     try {
       const res = await fetch('/api/conversations');
       if (!res.ok) throw new Error('Failed to load conversations');
 
       const data = await res.json();
-      setConversations(data.conversations || []);
+      const convList: Conversation[] = data.conversations || [];
+      setConversations(convList);
 
-      // If no current conversation, create one
-      if (data.conversations.length === 0) {
-        await createNewConversation();
+      // Only auto-select a conversation on the very first load
+      if (isInitialLoad) {
+        if (convList.length === 0) {
+          await createNewConversation();
+        } else {
+          // Restore the last selected conversation, fall back to the most recent
+          const savedId = typeof window !== 'undefined'
+            ? localStorage.getItem('last-conversation-id')
+            : null;
+          const restored = savedId
+            ? convList.find((c) => c.id === savedId)
+            : null;
+          setCurrentConversation(restored || convList[0]);
+        }
+        setLoading(false);
       } else {
-        setCurrentConversation(data.conversations[0]);
+        // Just update the list (e.g. after a message is sent) without switching chats
+        setLoading(false);
       }
-
-      setLoading(false);
     } catch (error) {
       console.error('Error loading conversations:', error);
       toast.error('Failed to load conversations');
@@ -112,6 +124,10 @@ export default function ChatPage() {
 
       setConversations(prev => [newConv, ...prev]);
       setCurrentConversation(newConv);
+      // Persist selection
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('last-conversation-id', newConv.id);
+      }
     } catch (error) {
       console.error('Error creating conversation:', error);
       toast.error('Failed to create conversation');
@@ -120,12 +136,16 @@ export default function ChatPage() {
 
   const selectConversation = (conv: Conversation) => {
     setCurrentConversation(conv);
+    // Remember the selection so it survives a browser refresh
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('last-conversation-id', conv.id);
+    }
   };
 
   const handleMessageSent = () => {
-    // Reload usage and conversations
+    // Refresh the sidebar list & usage, but don't switch the active conversation
     loadUsage();
-    loadConversations();
+    loadConversations(false);
   };
 
   const handleSignOut = async () => {
@@ -318,6 +338,7 @@ export default function ChatPage() {
         <div className="flex-1 overflow-hidden">
           {currentConversation ? (
             <ChatInterface
+              key={currentConversation.id}
               conversationId={currentConversation.id}
               onMessageSent={handleMessageSent}
             />

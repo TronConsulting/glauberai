@@ -1,7 +1,6 @@
 import { SignJWT, jwtVerify } from 'jose';
 import { cookies } from 'next/headers';
 
-const JWT_SECRET = process.env.JWT_SECRET || process.env.NEXT_PUBLIC_JWT_SECRET || '';
 const COOKIE_NAME = 'glauberai_token';
 const COOKIE_OPTIONS = {
   httpOnly: true,
@@ -13,17 +12,27 @@ const COOKIE_OPTIONS = {
 
 const encoder = new TextEncoder();
 
+function getJwtSecret(): string {
+  const secret = process.env.JWT_SECRET || process.env.NEXTAUTH_SECRET;
+
+  if (!secret?.trim()) {
+    throw new Error('JWT_SECRET or NEXTAUTH_SECRET must be set');
+  }
+
+  return secret;
+}
+
 export async function signJwt(payload: object): Promise<string> {
   return await new SignJWT(payload as any)
     .setProtectedHeader({ alg: 'HS256', typ: 'JWT' })
     .setIssuedAt()
     .setExpirationTime('7d')
-    .sign(encoder.encode(JWT_SECRET));
+    .sign(encoder.encode(getJwtSecret()));
 }
 
 export async function verifyJwt(token: string): Promise<any | null> {
   try {
-    const { payload } = await jwtVerify(token, encoder.encode(JWT_SECRET));
+    const { payload } = await jwtVerify(token, encoder.encode(getJwtSecret()));
     return payload;
   } catch (err) {
     return null;

@@ -2199,7 +2199,7 @@ const RAW_MODELS = [
     priority: 14
   },
 
-  // Ollama (local — previously no models)
+  // Ollama (local — requires OLLAMA_HOST env var or localhost:11434)
   {
     id: 'ollama-local',
     name: 'Ollama Local',
@@ -2212,11 +2212,11 @@ const RAW_MODELS = [
     supportsChat: true,
     supportsCode: true,
     supportsStreaming: true,
-    description: 'Local LLM via Ollama — runs any compatible model locally',
+    description: 'Local LLM via Ollama — for development only, requires local Ollama server or OLLAMA_HOST env var',
     strengths: ['local', 'private', 'free', 'offline', 'custom-models'],
     category: 'CHAT',
     tier: 'FREE',
-    priority: 30
+    priority: 2
   },
 
   // OpenRouter (previously no models)
@@ -2238,6 +2238,45 @@ const RAW_MODELS = [
     category: 'CHAT',
     tier: 'BASIC',
     priority: 20
+  },
+  // Ollama models via OpenRouter (cloud-hosted)
+  {
+    id: 'openrouter-ollama-llama2',
+    name: 'Llama 3.3 (OpenRouter)',
+    provider: 'openrouter',
+    modelId: 'ollama/llama3.3:70b',
+    apiUrl: 'https://openrouter.ai/api/v1/chat/completions',
+    costPer1kTokens: 0.88,
+    maxTokens: 8192,
+    contextWindow: 128000,
+    supportsChat: true,
+    supportsCode: true,
+    supportsStreaming: true,
+    modelSize: '70B',
+    description: 'Ollama Llama 3.3 via OpenRouter - cloud-hosted',
+    strengths: ['conversational', 'reasoning', 'cloud-hosted', 'free-tier'],
+    category: 'CHAT',
+    tier: 'BASIC',
+    priority: 12
+  },
+  {
+    id: 'openrouter-ollama-codellama',
+    name: 'Code Llama 34B (OpenRouter)',
+    provider: 'openrouter',
+    modelId: 'ollama/codegemma:7b',
+    apiUrl: 'https://openrouter.ai/api/v1/chat/completions',
+    costPer1kTokens: 0.3,
+    maxTokens: 8192,
+    contextWindow: 128000,
+    supportsChat: false,
+    supportsCode: true,
+    supportsStreaming: true,
+    modelSize: '7B',
+    description: 'Code generation model via OpenRouter - cloud-hosted',
+    strengths: ['code-generation', 'programming', 'cloud-hosted'],
+    category: 'CODE',
+    tier: 'BASIC',
+    priority: 9
   },
 
   // ===== PHASE 3: NEWER MODEL VERSIONS =====

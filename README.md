@@ -39,8 +39,8 @@ cp .env.example .env
 Edit `.env` with your credentials:
 ```env
 # Required
-DATABASE_URL="postgresql://..."
-JWT_SECRET="your-secret-key"
+glauber_DATABASE_URL="postgresql://..."
+NEXTAUTH_SECRET="your-secret-key"
 NEXT_PUBLIC_APP_URL="http://localhost:3000"
 
 # AI Providers (add keys for providers you want to use)

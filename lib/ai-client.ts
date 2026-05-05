@@ -528,12 +528,16 @@ export class UniversalAIClient {
         }
       };
 
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json'
+    };
+    if (model.apiKey && model.apiKey.trim() !== '') {
+      headers['Authorization'] = `Bearer ${model.apiKey}`;
+    }
+
     const response = await fetch(model.apiUrl, {
       method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${model.apiKey}`,
-        'Content-Type': 'application/json'
-      },
+      headers,
       body: JSON.stringify(requestBody)
     });
 

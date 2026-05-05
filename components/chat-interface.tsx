@@ -200,6 +200,19 @@ export function ChatInterface({
               case 'error':
                 toast.error(data.message);
                 setIsStreaming(false);
+                setMessages(prev => [
+                  ...prev,
+                  {
+                    id: messageId || Date.now().toString(),
+                    role: 'assistant',
+                    content: fullContent ? `${fullContent}\n\n**[Error: ${data.message}]**` : `**Error:** ${data.message}`,
+                    model: currentModel,
+                    tokens,
+                    cost,
+                    createdAt: new Date(),
+                  }
+                ]);
+                setStreamingMessage('');
                 return;
             }
           } catch (e) {

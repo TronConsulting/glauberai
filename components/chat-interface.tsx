@@ -341,9 +341,9 @@ export function ChatInterface({
               {message.model && (
                 <div className="mt-2 pt-2 border-t border-border/50 text-xs text-muted-foreground flex items-center gap-2">
                   <span className="font-medium">{message.model}</span>
-                  {message.tokens && (
+                  {message.tokens ? (
                     <span>• {message.tokens} tokens</span>
-                  )}
+                  ) : null}
                 </div>
               )}
             </div>

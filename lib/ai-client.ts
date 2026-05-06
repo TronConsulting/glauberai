@@ -238,6 +238,9 @@ export class UniversalAIClient {
           response = await this.callHuggingFace(model, prompt, options);
           break;
         // New provider handlers (2024)
+        case 'pollinations':
+          response = await this.callPollinations(model, prompt, options);
+          break;
         case 'deepseek':
           response = await this.callDeepSeek(model, prompt, options);
           break;
@@ -807,6 +810,38 @@ export class UniversalAIClient {
       latency: 0,
       success: true,
       metadata: { usage: data.usage }
+    };
+  }
+
+  /**
+   * Call Pollinations AI (Truly free, no key required)
+   */
+  private async callPollinations(model: Model, prompt: string, options: AIOptions): Promise<AIResponse> {
+    const apiUrl = model.apiUrl || 'https://text.pollinations.ai/';
+    
+    // Pollinations accepts the prompt as the URL path (URL encoded)
+    // Example: https://text.pollinations.ai/What%20is%20the%20meaning%20of%20life
+    const url = `${apiUrl}${encodeURIComponent(prompt)}`;
+    
+    const response = await fetch(url, {
+      method: 'GET',
+    });
+
+    if (!response.ok) {
+      const error = await response.text();
+      throw new Error(`Pollinations API error: ${response.status} - ${error}`);
+    }
+
+    const content = await response.text();
+
+    return {
+      content,
+      model: model.name,
+      provider: model.provider,
+      tokens: this.estimateTokens(prompt + content),
+      cost: 0,
+      latency: 0,
+      success: true
     };
   }
 

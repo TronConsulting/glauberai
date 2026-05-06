@@ -8,7 +8,7 @@ import { validateQuery, ValidationError } from '@/lib/validation';
 import { createSSEMessage, createStreamResponse } from '@/lib/streaming';
 import { aiClient } from '@/lib/ai-client';
 import { PLAN_LIMITS } from '@/lib/usage';
-import { ALL_MODELS } from '@/lib/models';
+import { modelManager } from '@/lib/model-manager';
 
 const MAX_COMPLETION_TOKENS = 500;
 
@@ -115,7 +115,7 @@ export async function POST(req: NextRequest) {
           // Build context from recent messages
           const context = conversation.messages
             .reverse()
-            .map((msg) => `${msg.role}: ${msg.content.slice(0, 200)}`)
+            .map((msg: any) => `${msg.role}: ${msg.content.slice(0, 200)}`)
             .join('\n\n');
 
           const enhancedMessage = context
@@ -124,7 +124,7 @@ export async function POST(req: NextRequest) {
 
           // Filter models based on user's plan tier
           const allowedTiers = PLAN_LIMITS[ctx.user.plan as keyof typeof PLAN_LIMITS]?.modelTiers || ['FREE'];
-          const availableModels = ALL_MODELS.filter(model =>
+          const availableModels = modelManager.getAllModels().filter(model =>
             allowedTiers.includes(model.tier)
           );
 

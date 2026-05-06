@@ -8,7 +8,7 @@ export const ModelSchema = z.object({
     // Major LLM providers
     'openai', 'anthropic', 'google', 'cohere', 'mistral', 'meta',
     'huggingface', 'ollama', 'together', 'perplexity', 'groq',
-    'replicate', 'stability', 'midjourney', 'runpod',
+    'replicate', 'stability', 'midjourney', 'runpod', 'pollinations',
     // New LLM providers (2024)
     'deepseek', 'xai', 'fireworks', 'openrouter', 'anyscale', 'nvidia', 'qwen',
     // Specialized audio/media providers
@@ -65,6 +65,25 @@ export type Model = z.infer<typeof ModelSchema>;
 // Raw model configurations that will be validated and filled with defaults
 const RAW_MODELS = [
   // ===== OPEN SOURCE MODELS (FREE) =====
+
+  // Pollinations (Truly Free, No Key Required)
+  {
+    id: 'pollinations-text',
+    name: 'Pollinations AI (Free)',
+    provider: 'pollinations',
+    modelId: 'openai',
+    apiUrl: 'https://text.pollinations.ai/',
+    costPer1kTokens: 0,
+    maxTokens: 4096,
+    contextWindow: 4096,
+    supportsChat: true,
+    supportsCode: true,
+    description: 'Completely free text generation API, requires no authentication',
+    strengths: ['free', 'no-auth', 'fast'],
+    category: 'CHAT',
+    tier: 'FREE',
+    priority: 1
+  },
 
   // Meta Llama Models (Together.xyz)
   {
@@ -2715,6 +2734,7 @@ export const API_KEY_MAPPINGS = {
   meta: 'META_API_KEY',
   huggingface: 'HUG_GLAUBER_API',
   ollama: 'OLLAMA_GLAUBER_API',
+  pollinations: 'POLLINATIONS_API_KEY', // Not actually required, but needed for mapping
   together: 'TOGETHER_GLAUBER_API',
   perplexity: 'PERPLEXITY_API_KEY',
   groq: 'GROQ_API_KEY',

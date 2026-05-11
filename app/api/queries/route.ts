@@ -32,7 +32,7 @@ export async function GET(req: NextRequest) {
     });
 
     // Transform requests to match the expected format
-    const queries = requests.map(request => {
+    const queries = requests.map((request: typeof requests[number]) => {
       // Analyze the query to determine content type
       const analysis = aiRouter.analyzeQuery(request.query);
       

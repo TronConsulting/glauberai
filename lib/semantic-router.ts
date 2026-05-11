@@ -191,7 +191,7 @@ export class SemanticRouter {
         take: limit,
       });
 
-      return preferences.map(pref => ({
+      return preferences.map((pref: typeof preferences[number]) => ({
         userId: pref.userId,
         modelId: pref.modelId,
         queryType: pref.queryType as ModelCategory,

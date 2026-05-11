@@ -10,7 +10,6 @@ import {
   RoutingDecision
 } from './intelligent-model-router';
 import {
-  dynamicModelRegistry,
   DynamicModel
 } from './dynamic-model-registry';
 import { intelligentKeyManager } from './intelligent-key-manager';
@@ -48,6 +47,8 @@ export interface ProcessingResult extends AIResponse {
   routing: RoutingDecision;
   attemptedModels: string[];
   finalModel: string;
+  taskType?: ModelCategory;
+  providerFailures?: Array<{ provider: string; model: string; reason: string; errorType: string }>;
   performance?: {
     routingTime: number;
     totalTime: number;
@@ -98,7 +99,8 @@ export class IntelligentAIRouter {
     const intentPatterns: Record<string, RegExp[]> = {
       code: [
         /\bcode\b/, /\bfunction\b/, /\bclass\b/, /\bdebug\b/, /\bprogram\b/, /\bscript\b/,
-        /\bcompile\b/, /\bpython\b/, /\bjavascript\b/, /\btypescript\b/, /\brust\b/, /\bjava\b/, /\bgo\b/
+        /\bcompile\b/, /\bpython\b/, /\bjavascript\b/, /\btypescript\b/, /\brust\b/, /\bjava\b/, /\bgo\b/,
+        /\breact\b/, /\bcomponent\b/, /\bjsx\b/, /\btsx\b/, /\bsql\b/, /\bapi\b/, /\bendpoint\b/
       ],
       reasoning: [
         /\banalyze\b/, /\bevaluate\b/, /\bcompare\b/, /\bcritique\b/, /\bassess\b/, /\bwhy\b/,
@@ -147,8 +149,8 @@ export class IntelligentAIRouter {
 
     const requiresCode = intentTags.includes('code');
     const requiresVision = intentTags.includes('vision') || intentTags.includes('multimodal');
-    const requiresReasoning = intentTags.includes('reasoning') || intentTags.includes('math') || intentTags.includes('planning') || intentTags.includes('research') || intentTags.includes('analyze');
-    const requiresCreative = intentTags.includes('creative') || intentTags.includes('teaching') || intentTags.includes('write');
+    const requiresReasoning = intentTags.includes('reasoning') || intentTags.includes('math') || intentTags.includes('planning') || intentTags.includes('research');
+    const requiresCreative = intentTags.includes('creative') || intentTags.includes('teaching');
     const requiresFast = urgency === 'high' || intentTags.includes('fast') || intentTags.includes('quick');
     const questionWords = ['what', 'how', 'why', 'when', 'where', 'who', 'which', 'can', 'should', 'will'];
     const isQuestion = questionWords.some(qw => queryLower.startsWith(`${qw} `)) || queryLower.includes('?');
@@ -177,7 +179,9 @@ export class IntelligentAIRouter {
     let primaryType: ModelCategory = 'CHAT';
     const secondaryTypes: ModelCategory[] = [];
 
-    if (requiresCode) {
+    if (requiresFast && words.length <= 30 && !requiresCode && !requiresVision && !requiresReasoning && !requiresCreative) {
+      primaryType = 'FAST';
+    } else if (requiresCode) {
       primaryType = 'CODE';
       if (requiresReasoning) secondaryTypes.push('REASONING');
     } else if (requiresVision) {
@@ -313,12 +317,17 @@ export class IntelligentAIRouter {
     let fallbacksUsed = 0;
     const attemptedModels: string[] = [];
     const modelErrors: Array<{ model: string; error: string; errorType: string }> = [];
+    const analysis = this.analyzeQuery(query);
+    const taskType = this.resolveTaskType(analysis, category, constraints);
 
     try {
       // Use enhanced intelligent routing
       const routingStartTime = Date.now();
-      const routing = enhancedModelManager.routeIntelligently(query, category, {
+      const routing = enhancedModelManager.routeIntelligently(query, taskType, {
         ...constraints,
+        requiresVision: constraints.requiresVision || analysis.requiresVision,
+        requiresCode: constraints.requiresCode || analysis.requiresCode,
+        requiresSpeed: constraints.requiresSpeed || analysis.requiresFast,
         userPreference
       });
       routingTime = Date.now() - routingStartTime;
@@ -353,6 +362,13 @@ export class IntelligentAIRouter {
               routing,
               attemptedModels,
               finalModel: model.name,
+              taskType,
+              providerFailures: modelErrors.map(error => ({
+                provider: modelsToTry.find(candidate => candidate.name === error.model)?.provider || 'unknown',
+                model: error.model,
+                reason: error.error,
+                errorType: error.errorType
+              })),
               performance: { routingTime, totalTime, fallbacksUsed }
             };
           } else {
@@ -391,6 +407,13 @@ export class IntelligentAIRouter {
         routing,
         attemptedModels,
         finalModel: 'none',
+        taskType,
+        providerFailures: modelErrors.map(error => ({
+          provider: modelsToTry.find(candidate => candidate.name === error.model)?.provider || 'unknown',
+          model: error.model,
+          reason: error.error,
+          errorType: error.errorType
+        })),
         performance: { routingTime, totalTime, fallbacksUsed },
         metadata: {
           modelErrors,
@@ -402,8 +425,12 @@ export class IntelligentAIRouter {
       const totalTime = Date.now() - startTime;
       console.warn('Enhanced routing failed, falling back to basic routing:', error);
 
-      const fallbackModels = dynamicModelRegistry.getModelsWithPerformance()
-        .filter(m => m.enabled)
+      const fallbackModels = this.getTaskCompatibleModels(modelManager.getAllModels(), analysis, {
+        requiresVision: constraints.requiresVision || analysis.requiresVision,
+        requiresCode: constraints.requiresCode || analysis.requiresCode,
+        requiresSpeed: constraints.requiresSpeed || analysis.requiresFast,
+        maxCost: constraints.maxCost
+      })
         .slice(0, 3);
 
       if (fallbackModels.length === 0) {
@@ -428,6 +455,8 @@ export class IntelligentAIRouter {
           },
           attemptedModels: [],
           finalModel: 'none',
+          taskType,
+          providerFailures: [],
           performance: { routingTime, totalTime, fallbacksUsed }
         };
       }
@@ -438,7 +467,7 @@ export class IntelligentAIRouter {
         return {
           ...response,
           routing: {
-            selectedModel: fallbackModel,
+            selectedModel: fallbackModel as DynamicModel,
             reasoning: ['Fallback routing after enhanced routing failed'],
             confidence: 0.5,
             alternatives: [],
@@ -449,6 +478,8 @@ export class IntelligentAIRouter {
           },
           attemptedModels: [fallbackModel.name],
           finalModel: fallbackModel.name,
+          taskType,
+          providerFailures: [],
           performance: { routingTime, totalTime, fallbacksUsed }
         };
       } catch (fallbackError) {
@@ -473,10 +504,28 @@ export class IntelligentAIRouter {
           },
           attemptedModels: [],
           finalModel: 'none',
+          taskType,
+          providerFailures: [],
           performance: { routingTime, totalTime, fallbacksUsed }
         };
       }
     }
+  }
+
+  private resolveTaskType(
+    analysis: QueryAnalysis,
+    requestedCategory: ModelCategory,
+    constraints: {
+      requiresVision?: boolean;
+      requiresCode?: boolean;
+      requiresSpeed?: boolean;
+    }
+  ): ModelCategory {
+    if (constraints.requiresVision || analysis.requiresVision) return 'VISION';
+    if (constraints.requiresCode || analysis.requiresCode) return 'CODE';
+    if (analysis.primaryType !== 'CHAT') return analysis.primaryType;
+    if (constraints.requiresSpeed || analysis.requiresFast) return 'FAST';
+    return requestedCategory === 'CHAT' ? analysis.primaryType : requestedCategory;
   }
 
   /**
@@ -629,12 +678,7 @@ export class IntelligentAIRouter {
 
     const modelsToSearch = availableModels || modelManager.getAllModels();
 
-    const candidateModels = modelsToSearch.filter(m =>
-      (!preferences.maxCost || m.costPer1kTokens <= preferences.maxCost) &&
-      (!preferences.requiresVision || m.supportsVision) &&
-      (!preferences.requiresCode || m.supportsCode) &&
-      m.enabled
-    );
+    const candidateModels = this.getTaskCompatibleModels(modelsToSearch, analysis, preferences);
 
     if (candidateModels.length === 0) {
       return null;
@@ -669,7 +713,10 @@ export class IntelligentAIRouter {
       return score;
     };
 
-    const candidatesWithScore = candidateModels.map(m => ({ model: m, score: strengthScore(m) + (100 - m.priority) * 0.5 }));
+    const candidatesWithScore = candidateModels.map(m => ({
+      model: m,
+      score: strengthScore(m) + this.costEfficiencyScore(m, analysis) + this.latencyScore(m, preferences.requiresSpeed)
+    }));
     candidatesWithScore.sort((a, b) => b.score - a.score);
 
     if (candidatesWithScore[0]) {
@@ -677,6 +724,65 @@ export class IntelligentAIRouter {
     }
 
     return candidateModels[0] || null;
+  }
+
+  private getTaskCompatibleModels(
+    models: Model[],
+    analysis: QueryAnalysis,
+    preferences: {
+      maxCost?: number;
+      preferFree?: boolean;
+      requiresVision?: boolean;
+      requiresCode?: boolean;
+      requiresReasoning?: boolean;
+      requiresCreative?: boolean;
+      requiresSpeed?: boolean;
+    }
+  ): Model[] {
+    const taskType = analysis.primaryType;
+
+    return models
+      .filter(m => m.enabled)
+      .filter(m => preferences.maxCost === undefined || m.costPer1kTokens <= preferences.maxCost)
+      .filter(m => !preferences.requiresVision || m.supportsVision || m.category === 'MULTIMODAL')
+      .filter(m => !preferences.requiresCode || m.supportsCode)
+      .filter(m => {
+        if (taskType === 'VISION' || taskType === 'MULTIMODAL') return m.supportsVision || m.category === 'MULTIMODAL';
+        if (taskType === 'CODE') return m.supportsCode || m.category === 'CODE';
+        if (taskType === 'FAST') return m.category === 'FAST' || m.strengths.some(s => /fast|efficient|real-time/i.test(s));
+        if (taskType === 'REASONING') return m.category === 'REASONING' || m.strengths.some(s => /reasoning|analysis|math|complex/i.test(s));
+        if (taskType === 'CREATIVE') return m.category === 'CREATIVE' || m.supportsChat;
+        return m.supportsChat;
+      })
+      .sort((a, b) => {
+        if (preferences.preferFree && a.costPer1kTokens !== b.costPer1kTokens) {
+          return a.costPer1kTokens - b.costPer1kTokens;
+        }
+        return a.priority - b.priority;
+      });
+  }
+
+  private costEfficiencyScore(model: Model, analysis: QueryAnalysis): number {
+    const cost = model.costPer1kTokens;
+    const isSpecialized =
+      analysis.primaryType === 'CODE' ||
+      analysis.primaryType === 'REASONING' ||
+      analysis.primaryType === 'VISION' ||
+      analysis.primaryType === 'MULTIMODAL';
+
+    if (cost === 0) return isSpecialized ? 12 : 35;
+    if (cost <= 0.1) return isSpecialized ? 10 : 28;
+    if (cost <= 0.5) return isSpecialized ? 8 : 20;
+    if (cost <= 1) return isSpecialized ? 5 : 12;
+    return isSpecialized ? 0 : -10;
+  }
+
+  private latencyScore(model: Model, requiresSpeed?: boolean): number {
+    const strengths = model.strengths.join(' ').toLowerCase();
+    if (model.category === 'FAST' || /fast|efficient|real-time|ultra-fast/.test(strengths)) {
+      return requiresSpeed ? 24 : 8;
+    }
+    return 0;
   }
 
   /**
@@ -692,21 +798,22 @@ export class IntelligentAIRouter {
 
     const modelsToSearch = availableModels || modelManager.getAllModels();
 
-    // Add free models as fallbacks
-    if (!constraints.preferFree) {
-      const freeModels = modelsToSearch
-        .filter(m => m.costPer1kTokens === 0)
-        .filter(m => m.id !== primaryModel?.id)
-        .filter(m => !analysis.requiresVision || m.supportsVision)
-        .filter(m => !analysis.requiresCode || m.supportsCode)
-        .filter(m => m.enabled)
-        .slice(0, 2);
+    const compatibleFallbacks = this.getTaskCompatibleModels(modelsToSearch, analysis, {
+      maxCost: constraints.maxCost,
+      requiresVision: analysis.requiresVision,
+      requiresCode: analysis.requiresCode,
+      requiresReasoning: analysis.requiresReasoning,
+      requiresCreative: analysis.requiresCreative,
+      requiresSpeed: constraints.requiresSpeed || analysis.requiresFast,
+    })
+      .filter(m => m.id !== primaryModel?.id)
+      .slice(0, 3);
 
-      chain.push(...freeModels);
-    }
+    chain.push(...compatibleFallbacks);
 
-    // Always add the ultimate fallback (GPT-2 or first available free model)
-    const fallback = modelsToSearch.find(m => m.id === 'gpt2' || m.costPer1kTokens === 0);
+    const fallback = modelsToSearch
+      .filter(m => m.enabled)
+      .find(m => (m.id === 'gpt2' || m.costPer1kTokens === 0) && !analysis.requiresVision && !analysis.requiresCode);
     if (fallback && !chain.some(m => m.id === fallback.id)) {
       chain.push(fallback);
     }
@@ -726,7 +833,7 @@ export class IntelligentAIRouter {
     const modelsToSearch = availableModels || modelManager.getAllModels();
 
     return modelsToSearch
-      .filter(m => m.category === analysis.type || !availableModels)
+      .filter(m => this.getTaskCompatibleModels([m], analysis, constraints).length > 0)
       .filter(m => m.id !== selectedModel?.id)
       .filter(m => !constraints.maxCost || m.costPer1kTokens <= constraints.maxCost)
       .filter(m => m.enabled)

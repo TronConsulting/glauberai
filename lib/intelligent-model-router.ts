@@ -1,5 +1,6 @@
 import { Model, ModelCategory } from './models';
 import { DynamicModel, DynamicModelRegistry, dynamicModelRegistry, ModelPerformanceMetrics } from './dynamic-model-registry';
+import { modelManager } from './model-manager';
 
 export interface IntelligentRoutingConfig {
   // Performance-based routing
@@ -96,8 +97,10 @@ export class IntelligentModelRouter {
     const config = { ...this.config, ...customConfig };
     const reasoning: string[] = [];
     
-    // Get available models with performance data
-    const modelsWithPerformance = dynamicModelRegistry.getModelsWithPerformance();
+    // Get available models from the environment-aware model manager. The dynamic
+    // registry stores performance, but ModelManager is the source of truth for
+    // configured providers and API keys.
+    const modelsWithPerformance = this.getConfiguredModelsWithPerformance();
     
     // Apply basic filters
     let candidates = this.applyBasicFilters(modelsWithPerformance, category, constraints, reasoning);
@@ -156,15 +159,15 @@ export class IntelligentModelRouter {
       const failures = this.recentFailures.get(m.id) || 0;
       if (failures >= this.config.maxFailuresBeforeFallback) return false;
       
-      // Must have API key if not free
-      if (m.costPer1kTokens > 0 && !m.apiKey) return false;
-      
-      // Category preference (but not strict)
-      // We'll prefer the right category but allow others
-      
       // Feature requirements
       if (constraints.requiresVision && !m.supportsVision) return false;
       if (constraints.requiresCode && !m.supportsCode) return false;
+      if (category === 'VISION' || category === 'MULTIMODAL') {
+        if (!m.supportsVision && m.category !== 'MULTIMODAL') return false;
+      }
+      if (category === 'CODE' && !m.supportsCode && m.category !== 'CODE') return false;
+      if (category === 'FAST' && m.category !== 'FAST' && !m.strengths.some(s => /fast|efficient|real-time/i.test(s))) return false;
+      if (category === 'REASONING' && m.category !== 'REASONING' && !m.strengths.some(s => /reasoning|analysis|math|complex/i.test(s))) return false;
       
       return true;
     });
@@ -179,7 +182,9 @@ export class IntelligentModelRouter {
       if (aMatches && !bMatches) return -1;
       if (!aMatches && bMatches) return 1;
       
-      // Secondary sort by priority
+      const costDelta = a.costPer1kTokens - b.costPer1kTokens;
+      if (Math.abs(costDelta) > 0.001 && category === 'CHAT') return costDelta;
+
       return a.priority - b.priority;
     });
     
@@ -386,12 +391,12 @@ export class IntelligentModelRouter {
     
     // Select based on recent usage and weights
     let selected = similarModels[0];
-    let lowestRecentUsage = Infinity;
+    let highestIdleHours = -1;
     
     for (const model of similarModels) {
       const hoursIdle = (Date.now() - model.performance.lastUsed) / (1000 * 60 * 60);
-      if (hoursIdle < lowestRecentUsage) {
-        lowestRecentUsage = hoursIdle;
+      if (hoursIdle > highestIdleHours) {
+        highestIdleHours = hoursIdle;
         selected = model;
       }
     }
@@ -452,32 +457,77 @@ export class IntelligentModelRouter {
     
     const chain: DynamicModel[] = [];
     
-    // Add similar models from same provider
-    const sameProvider = allCandidates.filter(m => 
+    // Add similar models from same provider and task family.
+    const sameProvider = allCandidates.filter(m =>
       m.id !== primary.id && 
       m.provider === primary.provider &&
-      m.category === primary.category
+      this.isTaskCompatibleFallback(primary, m)
     ).slice(0, 1);
     chain.push(...sameProvider);
     
-    // Add models from same category but different providers
-    const sameCategory = allCandidates.filter(m => 
+    // Add models from same task family but different providers.
+    const sameCategory = allCandidates.filter(m =>
       m.id !== primary.id && 
       m.provider !== primary.provider &&
-      m.category === primary.category &&
+      this.isTaskCompatibleFallback(primary, m) &&
       !chain.some(c => c.id === m.id)
-    ).slice(0, 1);
+    ).slice(0, 2);
     chain.push(...sameCategory);
     
-    // Add free models as final fallback
+    // Add free models as final fallback only when they satisfy hard capability needs.
     const freeModels = allCandidates.filter(m =>
       m.costPer1kTokens === 0 &&
       m.id !== primary.id &&
+      this.isTaskCompatibleFallback(primary, m) &&
       !chain.some(c => c.id === m.id)
     ).slice(0, 1);
     chain.push(...freeModels);
     
     return chain.map(m => ({ ...m })); // Clean response
+  }
+
+  private getConfiguredModelsWithPerformance(): Array<DynamicModel & { performance: ModelPerformanceMetrics }> {
+    return modelManager.getAllModels().map(model => {
+      const performance = dynamicModelRegistry
+        .getModelsWithPerformance()
+        .find(metricModel => metricModel.id === model.id)?.performance || this.createDefaultMetrics(model.id);
+
+      return {
+        ...model,
+        isCustom: false,
+        dateAdded: Date.now(),
+        performance
+      } as DynamicModel & { performance: ModelPerformanceMetrics };
+    });
+  }
+
+  private createDefaultMetrics(modelId: string): ModelPerformanceMetrics {
+    return {
+      modelId,
+      averageLatency: 0,
+      successRate: 1,
+      totalRequests: 0,
+      totalFailures: 0,
+      lastUsed: 0,
+      costEfficiency: 1,
+      responseQuality: 0.8
+    };
+  }
+
+  private isTaskCompatibleFallback(primary: DynamicModel, candidate: DynamicModel): boolean {
+    if (primary.category === 'VISION' || primary.category === 'MULTIMODAL' || primary.supportsVision) {
+      return candidate.supportsVision || candidate.category === 'MULTIMODAL';
+    }
+    if (primary.category === 'CODE' || primary.supportsCode && !primary.supportsChat) {
+      return candidate.supportsCode || candidate.category === 'CODE';
+    }
+    if (primary.category === 'REASONING') {
+      return candidate.category === 'REASONING' || candidate.strengths.some(s => /reasoning|analysis|math|complex/i.test(s));
+    }
+    if (primary.category === 'FAST') {
+      return candidate.category === 'FAST' || candidate.strengths.some(s => /fast|efficient|real-time/i.test(s));
+    }
+    return candidate.supportsChat;
   }
 
   /**

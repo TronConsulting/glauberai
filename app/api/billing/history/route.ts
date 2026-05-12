@@ -25,7 +25,7 @@ export async function GET(req: NextRequest) {
       take: 10 // Limit to last 10 records
     });
 
-    return NextResponse.json(billingRecords.map(record => ({
+    return NextResponse.json(billingRecords.map((record: typeof billingRecords[number]) => ({
       id: record.id,
       plan: record.plan,
       amount: record.amount,

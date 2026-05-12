@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getAuthCookie, verifyJwt } from '@/lib/auth';
 import { aiRouter } from '@/lib/ai-router';
 import { modelManager } from '@/lib/model-manager';
+import { ModelCategory } from '@/lib/models';
 import { prisma } from '@/lib/prisma';
 import { fileStorage } from '@/lib/file-storage';
 
@@ -152,13 +153,13 @@ export async function POST(req: NextRequest) {
 
     const conversationContext = recentHistory
       .reverse()
-      .map((entry) => {
+      .map((entry: typeof recentHistory[number]) => {
         const previousResponse = entry.response?.replace(/\\n+---[\\s\\S]*/g, '').trim().slice(0, 200);
         const previousQuery = entry.query?.trim().slice(0, 100);
         if (!previousQuery || !previousResponse) return null;
         return `Q: ${previousQuery}\\nA: ${previousResponse}`;
       })
-      .filter((segment): segment is string => Boolean(segment))
+      .filter((segment: string | null): segment is string => Boolean(segment))
       .join('\\n\\n');
 
     // Create enhanced query
@@ -199,15 +200,23 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    const queryAnalysis = aiRouter.analyzeQuery(enhancedQuery);
+    const taskType: ModelCategory = hasImages ? 'VISION' : queryAnalysis.primaryType;
+
     // Process the query using the intelligent router
     let result;
     try {
       console.log('🤖 Processing query with AI router...');
       result = await aiRouter.processQueryEnhanced(
         enhancedQuery, 
-        'CHAT',
+        taskType,
         selectedModel === 'auto' ? undefined : selectedModel,
-        constraints,
+        {
+          ...constraints,
+          requiresVision: hasImages || queryAnalysis.requiresVision,
+          requiresCode: queryAnalysis.requiresCode,
+          requiresSpeed: queryAnalysis.requiresFast || requiresSpeed
+        },
         { maxTokens: Math.min(MAX_COMPLETION_TOKENS, remainingTokens > 0 ? remainingTokens : MAX_COMPLETION_TOKENS) }
       );
       
@@ -268,7 +277,9 @@ export async function POST(req: NextRequest) {
           fallbackChain: []
         },
         attemptedModels: ['system-fallback'],
-        finalModel: 'System Fallback'
+        finalModel: 'System Fallback',
+        taskType,
+        providerFailures: []
       };
     }
 
@@ -362,8 +373,33 @@ export async function POST(req: NextRequest) {
       tier: alt.tier
     }));
 
+    const selectedTaskType = result.taskType || taskType;
+    const routingReasoning = Array.isArray(result.routing.reasoning)
+      ? result.routing.reasoning.join(' | ')
+      : result.routing.reasoning;
+    const providerFailures = result.providerFailures || [];
+
     const baseResponse = {
       response,
+      model: result.finalModel,
+      provider: result.provider,
+      reasoning: routingReasoning,
+      estimatedCost: result.cost,
+      confidence: result.routing.confidence,
+      selectedTaskType,
+      taskType: selectedTaskType,
+      alternatives,
+      attemptedModels: result.attemptedModels,
+      fallbackUsed: result.attemptedModels.length > 1,
+      fallbackAttempts: Math.max(0, result.attemptedModels.length - 1),
+      providerFailures,
+      isOpenSource: result.cost === 0 || result.routing.selectedModel.tier === 'FREE',
+      modelCapabilities: {
+        streaming: result.routing.selectedModel.supportsStreaming || false,
+        vision: result.routing.selectedModel.supportsVision || false,
+        code: result.routing.selectedModel.supportsCode || false,
+        multimodal: result.routing.selectedModel.category === 'MULTIMODAL'
+      },
       usage: updatedUsage,
       remainingTokens: updatedUsage.remainingTokens,
       filesProcessed: storedFiles.length,
@@ -395,6 +431,9 @@ export async function POST(req: NextRequest) {
         alternatives,
         systemStatus,
         attemptedModels: result.attemptedModels,
+        fallbackAttempts: Math.max(0, result.attemptedModels.length - 1),
+        providerFailures,
+        selectedTaskType,
         fallbackUsed: result.attemptedModels.length > 1
       }
       : undefined;
